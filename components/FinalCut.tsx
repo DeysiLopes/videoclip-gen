@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
 */
 import React, {useCallback, useEffect, useRef, useState} from 'react';
-import {Scene} from '../types';
+import {Scene, SceneStatus} from '../types';
 import VisualTimeline from './VisualTimeline';
 
 interface FinalCutProps {
@@ -13,7 +13,9 @@ interface FinalCutProps {
 }
 
 const FinalCut: React.FC<FinalCutProps> = ({scenes, audioUrl, onBack}) => {
-  const sortedScenes = [...scenes].sort((a, b) => a.timestamp - b.timestamp);
+  const scenesToShow = scenes.filter(s => s.status === SceneStatus.APPROVED || s.status === SceneStatus.GENERATED);
+  const sortedScenes = [...scenesToShow].sort((a, b) => a.timestamp - b.timestamp);
+  
   const audioRef = useRef<HTMLAudioElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   
@@ -121,8 +123,8 @@ const FinalCut: React.FC<FinalCutProps> = ({scenes, audioUrl, onBack}) => {
   if (sortedScenes.length === 0) {
       return (
          <div className="text-center flex-grow flex flex-col items-center justify-center">
-            <h2 className="text-2xl text-gray-500">No approved scenes.</h2>
-            <p className="text-gray-600 mt-2">Go back to the storyboard to approve some scenes first.</p>
+            <h2 className="text-2xl text-gray-500">No generated or approved scenes.</h2>
+            <p className="text-gray-600 mt-2">Go back and generate some scenes to preview the final cut.</p>
              <button
               onClick={onBack}
               className="mt-6 px-6 py-2 bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors">
