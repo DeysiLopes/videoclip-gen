@@ -2,26 +2,24 @@ FROM node:18-alpine AS build
 
 WORKDIR /app
 
-# copia package.json e package-lock.json (se existir)
+# copia package.json (e package-lock.json se existir)
 COPY package*.json ./
 
-# se package-lock.json existir, npm ci será usado; caso contrário, fallback para npm install
-RUN if [ -f package-lock.json ]; then npm ci --silent --prefer-offline; else npm install --silent --prefer-offline; fi
+# usa npm ci quando houver lockfile, senão npm install
+RUN if [ -f package-lock.json ]; then npm ci --silent --prefer-offline --omit=dev; else npm install --silent --prefer-offline; fi
 
-# copia o resto do código
+# copia restante do código e builda
 COPY . .
-
-# build do app (assume script "build" no package.json que gera /build ou /dist dependendo do setup)
-RUN npm run build
+RUN npm run build && \
+    if [ -d dist ]; then mv dist out; elif [ -d build ]; then mv build out; else echo "Build output not found (expected dist/ or build/)"; exit 1; fi
 
 FROM nginx:stable-alpine
 
-# usa nginx que escuta na porta 8080 (Cloud Run espera PORT=8080)
+# nginx deve escutar 8080 (Cloud Run)
 COPY nginx.conf /etc/nginx/nginx.conf
 
-# ajuste conforme a pasta de saída do seu build (ex: build, dist)
-COPY --from=build /app/build /usr/share/nginx/html
+# copia saída padronizada
+COPY --from=build /app/out /usr/share/nginx/html
 
 EXPOSE 8080
-
 CMD ["nginx", "-g", "daemon off;"]
