@@ -22,6 +22,7 @@ interface StoryboardProps {
   onComplete: () => void;
   onBack: () => void;
   projectConfig: ProjectConfig;
+  requestCount: number;
 }
 
 const Storyboard: React.FC<StoryboardProps> = ({
@@ -32,7 +33,8 @@ const Storyboard: React.FC<StoryboardProps> = ({
   onGenerateScene,
   onComplete,
   onBack,
-  projectConfig
+  projectConfig,
+  requestCount,
 }) => {
   const audioRef = useRef<HTMLAudioElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -73,7 +75,8 @@ const Storyboard: React.FC<StoryboardProps> = ({
     }
   }
 
-  const approvedScenesCount = scenes.filter(s => s.status === SceneStatus.APPROVED).length;
+  const generatedOrApprovedScenes = scenes.filter(s => s.status === SceneStatus.GENERATED || s.status === SceneStatus.APPROVED).length;
+  const canProceed = scenes.length > 0;
 
   return (
     <div className="w-full h-full flex flex-col">
@@ -141,14 +144,19 @@ const Storyboard: React.FC<StoryboardProps> = ({
           </button>
         </div>
         <div className="w-full md:w-auto text-center md:text-right">
-          <button
-            onClick={onComplete}
-            disabled={scenes.length === 0}
-            className="w-full md:w-auto px-8 py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg transition-colors text-lg inline-flex items-center justify-center gap-2 disabled:bg-gray-600 disabled:cursor-not-allowed">
-            Proceed to Final Cut ({approvedScenesCount})
-            <ArrowRightIcon className="w-5 h-5" />
-          </button>
-          {scenes.length === 0 && (
+          <div className="flex items-center gap-4 justify-center md:justify-end">
+            <div className="text-sm text-gray-400" title="This is an estimate based on the standard free tier quota.">
+              Daily Requests: <span className="font-semibold text-white">{requestCount} / 10</span>
+            </div>
+            <button
+              onClick={onComplete}
+              disabled={!canProceed}
+              className="w-full md:w-auto px-8 py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg transition-colors text-lg inline-flex items-center justify-center gap-2 disabled:bg-gray-600 disabled:cursor-not-allowed">
+              Proceed to Final Cut ({generatedOrApprovedScenes})
+              <ArrowRightIcon className="w-5 h-5" />
+            </button>
+          </div>
+          {!canProceed && (
             <p className="text-xs text-gray-500 mt-1">
               Add at least one scene to continue.
             </p>

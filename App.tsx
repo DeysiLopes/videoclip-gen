@@ -6,6 +6,7 @@ import {Video} from '@google/genai';
 import React, {useCallback, useEffect, useRef, useState} from 'react';
 import ApiKeyDialog from './components/ApiKeyDialog';
 import FinalCut from './components/FinalCut';
+import LocalApiKeyDialog from './components/LocalApiKeyDialog';
 import ProjectSetup from './components/ProjectSetup';
 import Storyboard from './components/Storyboard';
 import {generateVideo} from './services/geminiService';
@@ -138,6 +139,9 @@ const App: React.FC = () => {
   );
   const [scenes, setScenes] = useState<Scene[]>([]);
   const [showApiKeyDialog, setShowApiKeyDialog] = useState(false);
+  const [showLocalApiKeyDialog, setShowLocalApiKeyDialog] = useState(false);
+  const [localApiKey, setLocalApiKey] = useState<string | null>(null);
+  const [requestCount, setRequestCount] = useState(0);
   const objectUrls = useRef(new Set<string>());
 
   useEffect(() => {
@@ -154,6 +158,7 @@ const App: React.FC = () => {
   useEffect(() => {
     const checkApiKey = async () => {
       if (window.aistudio) {
+        // AI Studio environment
         try {
           if (!(await window.aistudio.hasSelectedApiKey())) {
             setShowApiKeyDialog(true);
@@ -161,6 +166,14 @@ const App: React.FC = () => {
         } catch (error) {
           console.warn('aistudio.hasSelectedApiKey check failed.', error);
           setShowApiKeyDialog(true);
+        }
+      } else {
+        // Local or deployed environment
+        const storedKey = localStorage.getItem('gemini-api-key');
+        if (storedKey) {
+          setLocalApiKey(storedKey);
+        } else {
+          setShowLocalApiKeyDialog(true);
         }
       }
     };
@@ -220,6 +233,15 @@ const App: React.FC = () => {
       await window.aistudio.openSelectKey();
     }
   };
+  
+  const handleLocalApiKeySave = (key: string) => {
+    if (key.trim()) {
+      const trimmedKey = key.trim();
+      localStorage.setItem('gemini-api-key', trimmedKey);
+      setLocalApiKey(trimmedKey);
+      setShowLocalApiKeyDialog(false);
+    }
+  };
 
   const handleProjectSetupComplete = useCallback((config: ProjectConfig) => {
     setProjectConfig(config);
@@ -236,6 +258,36 @@ const App: React.FC = () => {
 
       const sceneToGenerate = scenes.find((s) => s.id === sceneId);
       if (!sceneToGenerate) return;
+      
+      let apiKeyToUse : string | null | undefined = null;
+      if (window.aistudio) {
+        try {
+          if (!(await window.aistudio.hasSelectedApiKey())) {
+            setShowApiKeyDialog(true);
+            return;
+          }
+           // In AI Studio, the key is handled by the environment via process.env
+          apiKeyToUse = process.env.API_KEY;
+        } catch (error) {
+          setShowApiKeyDialog(true);
+          return;
+        }
+      } else {
+        apiKeyToUse = localApiKey;
+      }
+      
+      if (!apiKeyToUse) {
+        const errorUpdate: Partial<Scene> = {
+            status: SceneStatus.ERROR,
+            errorMessage: 'API Key is not configured. Please provide your key.',
+        }
+        setScenes(prev => prev.map(s => s.id === sceneId ? {...s, ...errorUpdate} : s));
+        if (!window.aistudio) {
+            setShowLocalApiKeyDialog(true);
+        }
+        return;
+      }
+
 
       // Revoke old URL if it exists, before generating a new one
       if (sceneToGenerate.videoUrl) {
@@ -243,18 +295,7 @@ const App: React.FC = () => {
         objectUrls.current.delete(sceneToGenerate.videoUrl);
       }
       
-      if (window.aistudio) {
-        try {
-          if (!(await window.aistudio.hasSelectedApiKey())) {
-            setShowApiKeyDialog(true);
-            return;
-          }
-        } catch (error) {
-          setShowApiKeyDialog(true);
-          return;
-        }
-      }
-
+      setRequestCount(prev => prev + 1);
       setScenes((prev) =>
         prev.map((s) =>
           s.id === sceneId ? {...s, status: SceneStatus.GENERATING} : s,
@@ -335,7 +376,7 @@ const App: React.FC = () => {
       };
 
       try {
-        const {objectUrl, blob, video} = await generateVideo(params);
+        const {objectUrl, blob, video} = await generateVideo(params, apiKeyToUse);
         objectUrls.current.add(objectUrl);
         const duration = await getVideoDuration(objectUrl);
 
@@ -385,7 +426,7 @@ const App: React.FC = () => {
         );
       }
     },
-    [projectConfig, scenes],
+    [projectConfig, scenes, localApiKey],
   );
 
   const renderContent = () => {
@@ -408,12 +449,13 @@ const App: React.FC = () => {
             onComplete={() => setAppMode(AppMode.FINAL_CUT)}
             onBack={handleBackToSetup}
             projectConfig={projectConfig!}
+            requestCount={requestCount}
           />
         );
       case AppMode.FINAL_CUT:
         return (
           <FinalCut
-            scenes={scenes.filter((s) => s.status === SceneStatus.APPROVED)}
+            scenes={scenes.filter((s) => s.status === SceneStatus.APPROVED || s.status === SceneStatus.GENERATED)}
             audioUrl={projectConfig?.audioUrl ?? null}
             onBack={() => setAppMode(AppMode.STORYBOARD)}
           />
@@ -427,6 +469,9 @@ const App: React.FC = () => {
     <div className="h-screen bg-black text-gray-200 flex flex-col font-sans">
       {showApiKeyDialog && (
         <ApiKeyDialog onContinue={handleApiKeyDialogContinue} />
+      )}
+      {showLocalApiKeyDialog && (
+        <LocalApiKeyDialog onSave={handleLocalApiKeySave} />
       )}
       <header className="py-6 flex flex-col justify-center items-center px-8 relative z-10 shrink-0 gap-8">
         <h1 className="text-5xl font-semibold tracking-wide text-center bg-gradient-to-r from-indigo-400 via-purple-500 to-pink-500 bg-clip-text text-transparent">

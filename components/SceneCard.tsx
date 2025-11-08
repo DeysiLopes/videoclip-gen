@@ -100,7 +100,7 @@ const SceneCard: React.FC<SceneCardProps> = ({
   const isLooping = scene.intendedDuration && scene.duration && scene.intendedDuration > scene.duration + 0.1;
 
   return (
-    <div className={`bg-gray-800/60 rounded-xl border ${isApproved ? 'border-green-500/50' : 'border-gray-700'} shadow-lg transition-all`}>
+    <div className={`bg-gray-800/60 rounded-xl border ${isApproved ? 'border-green-500/50' : 'border-gray-700'} shadow-lg transition-all flex flex-col`}>
       <div className="p-4">
         <div className="flex justify-between items-center mb-3">
           <h3 className="text-lg font-bold text-white">Scene {sceneNumber}</h3>
@@ -115,7 +115,7 @@ const SceneCard: React.FC<SceneCardProps> = ({
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
             placeholder="Describe this scene... e.g., 'CENA 1 (0:00 – 0:35) - A singer appears...'"
-            className="w-full bg-gray-700/50 p-2 rounded-md resize-none text-gray-200 placeholder-gray-500"
+            className="w-full bg-gray-700/50 p-2 rounded-md resize-none text-gray-200 placeholder-gray-500 max-h-40"
             rows={3}
           />
         ) : (
@@ -123,52 +123,54 @@ const SceneCard: React.FC<SceneCardProps> = ({
         )}
       </div>
 
-      <div className="bg-black/30 aspect-video flex items-center justify-center overflow-hidden relative">
-        {scene.status === SceneStatus.GENERATING && <LoadingIndicator />}
-        {scene.videoUrl && (
-          <>
-            <video 
-              ref={videoRef}
-              src={scene.videoUrl} 
-              muted 
-              loop 
-              playsInline 
-              className="w-full h-full object-cover" 
-            />
-            <div className="absolute bottom-2 left-2 bg-black/60 text-white text-xs px-2 py-0.5 rounded font-mono flex items-center gap-1.5">
-              {formatSeconds(scene.duration ?? 0)}{durationLabel}
-              {isLooping && <LoopIcon className="w-3 h-3" title="This clip is looped to fill the intended duration" />}
+      {scene.status !== SceneStatus.DRAFT && (
+        <div className="bg-black/30 aspect-video flex items-center justify-center overflow-hidden relative">
+          {scene.status === SceneStatus.GENERATING && <LoadingIndicator />}
+          {scene.videoUrl && (
+            <>
+              <video 
+                ref={videoRef}
+                src={scene.videoUrl} 
+                muted 
+                loop 
+                playsInline 
+                className="w-full h-full object-cover" 
+              />
+              <div className="absolute bottom-2 left-2 bg-black/60 text-white text-xs px-2 py-0.5 rounded font-mono flex items-center gap-1.5">
+                {formatSeconds(scene.duration ?? 0)}{durationLabel}
+                {isLooping && <LoopIcon className="w-3 h-3" title="This clip is looped to fill the intended duration" />}
+              </div>
+            </>
+          )}
+          {scene.status === SceneStatus.ERROR && (
+            <div className="p-4 text-center">
+              <p className="text-red-400 font-semibold mb-2">Generation Failed</p>
+              {scene.errorType === 'QUOTA_EXCEEDED' ? (
+                  <p className="text-red-400/80 text-xs">
+                      You have exceeded your API quota. Please check your plan and billing details.
+                      <a 
+                          href="https://ai.google.dev/gemini-api/docs/rate-limits?hl=pt-br" 
+                          target="_blank" 
+                          rel="noopener noreferrer" 
+                          className="underline hover:text-red-300 ml-1"
+                      >
+                          Learn more.
+                      </a>
+                  </p>
+              ) : (
+                  <p className="text-red-400/80 text-xs">{scene.errorMessage}</p>
+              )}
             </div>
-          </>
-        )}
-        {scene.status === SceneStatus.ERROR && (
-           <div className="p-4 text-center">
-             <p className="text-red-400 font-semibold mb-2">Generation Failed</p>
-             {scene.errorType === 'QUOTA_EXCEEDED' ? (
-                <p className="text-red-400/80 text-xs">
-                    You have exceeded your API quota. Please check your plan and billing details.
-                    <a 
-                        href="https://ai.google.dev/gemini-api/docs/rate-limits?hl=pt-br" 
-                        target="_blank" 
-                        rel="noopener noreferrer" 
-                        className="underline hover:text-red-300 ml-1"
-                    >
-                        Learn more.
-                    </a>
-                </p>
-             ) : (
-                <p className="text-red-400/80 text-xs">{scene.errorMessage}</p>
-             )}
-           </div>
-        )}
-        {isApproved && (
-          <div className="absolute top-2 right-2 bg-green-500/20 text-green-300 text-xs font-bold px-2 py-1 rounded-full border border-green-500 flex items-center gap-1">
-            <ApproveIcon className="w-3 h-3"/> Approved
-          </div>
-        )}
-      </div>
+          )}
+          {isApproved && (
+            <div className="absolute top-2 right-2 bg-green-500/20 text-green-300 text-xs font-bold px-2 py-1 rounded-full border border-green-500 flex items-center gap-1">
+              <ApproveIcon className="w-3 h-3"/> Approved
+            </div>
+          )}
+        </div>
+      )}
 
-      <div className="p-3 bg-gray-900/30 rounded-b-xl flex items-center justify-between gap-2">
+      <div className="p-3 bg-gray-900/30 rounded-b-xl flex items-center justify-between gap-2 mt-auto">
         <div>
           {!isEditing && (
             <button onClick={() => setIsEditing(true)} className="p-2 text-gray-400 hover:text-white hover:bg-gray-700 rounded-full" title="Edit Scene"><EditIcon className="w-4 h-4"/></button>

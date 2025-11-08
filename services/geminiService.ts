@@ -12,10 +12,11 @@ import {VeoApiParams} from '../types';
 
 export const generateVideo = async (
   params: VeoApiParams,
+  apiKey: string,
 ): Promise<{objectUrl: string; blob: Blob; uri: string; video: Video}> => {
   console.log('Starting video generation with params:', params);
 
-  const ai = new GoogleGenAI({apiKey: process.env.API_KEY});
+  const ai = new GoogleGenAI({apiKey});
 
   const config: any = {
     numberOfVideos: 1,
@@ -107,7 +108,7 @@ export const generateVideo = async (
     const url = decodeURIComponent(videoObject.uri);
     console.log('Fetching video from:', url);
 
-    const res = await fetch(`${url}&key=${process.env.API_KEY}`);
+    const res = await fetch(`${url}&key=${apiKey}`);
 
     if (!res.ok) {
       const errorBody = await res.text();
