@@ -328,7 +328,7 @@ const ProjectSetup: React.FC<ProjectSetupProps> = ({
   };
 
   return (
-    <div className="flex-grow flex items-center justify-center">
+    <div className="flex-grow flex items-start justify-center pt-8">
       <div className="w-full max-w-3xl space-y-6">
         <h2 className="text-2xl font-bold text-center text-gray-200">
           Create a New Video Project
