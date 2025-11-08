@@ -122,26 +122,6 @@ const App: React.FC = () => {
     setAppMode(AppMode.STORYBOARD);
   }, []);
 
-  const addScene = useCallback((currentTime: number) => {
-    const newScene: Scene = {
-      id: Date.now().toString(),
-      prompt: '',
-      timestamp: currentTime,
-      status: SceneStatus.DRAFT,
-    };
-    setScenes((prev) => [...prev, newScene]);
-  }, []);
-
-  const updateScene = useCallback((id: string, updates: Partial<Scene>) => {
-    setScenes((prev) =>
-      prev.map((s) => (s.id === id ? {...s, ...updates} : s)),
-    );
-  }, []);
-
-  const deleteScene = useCallback((id: string) => {
-    setScenes((prev) => prev.filter((s) => s.id !== id));
-  }, []);
-
   const handleGenerateScene = useCallback(
     async (sceneId: string) => {
       if (!projectConfig) return;
@@ -170,11 +150,7 @@ const App: React.FC = () => {
       const hasReferences =
         projectConfig.characterImage || projectConfig.styleImages.length > 0;
 
-      const characterInstruction = projectConfig.characterImage
-        ? "IMPORTANT: The main character's face and likeness MUST match the person in the provided reference image. For all other details, including costume, hair style, and environment, strictly follow the descriptions in the technical sheet below. The reference image is to be used for the character's facial identity ONLY.\n\n"
-        : '';
-
-      const finalPrompt = `${characterInstruction}${projectConfig.technicalSheet}\n\n---\n\nSCENE DESCRIPTION:\n${sceneToGenerate.prompt}`;
+      const finalPrompt = `${projectConfig.technicalSheet}\n\n---\n\nSCENE DESCRIPTION:\n${sceneToGenerate.prompt}`;
 
       const params: VeoApiParams = {
         prompt: finalPrompt,
@@ -231,9 +207,7 @@ const App: React.FC = () => {
         return (
           <Storyboard
             scenes={scenes}
-            onAddScene={addScene}
-            onUpdateScene={updateScene}
-            onDeleteScene={deleteScene}
+            setScenes={setScenes}
             onGenerateScene={handleGenerateScene}
             onComplete={() => setAppMode(AppMode.FINAL_CUT)}
             projectConfig={projectConfig!}
