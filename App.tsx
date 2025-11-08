@@ -20,6 +20,24 @@ import {
   VeoModel,
 } from './types';
 
+const getVideoDuration = (url: string): Promise<number> => {
+  return new Promise((resolve, reject) => {
+    const video = document.createElement('video');
+    video.preload = 'metadata';
+    video.onloadedmetadata = () => {
+      URL.revokeObjectURL(video.src);
+      resolve(video.duration);
+    };
+    video.onerror = (e) => {
+      URL.revokeObjectURL(video.src);
+      const errorEvent = e as ErrorEvent;
+      reject(new Error(`Error loading video for duration check: ${errorEvent.message}`));
+    };
+    video.src = url;
+  });
+};
+
+
 const Stepper: React.FC<{currentMode: AppMode}> = ({currentMode}) => {
   const steps = [AppMode.SETUP, AppMode.STORYBOARD, AppMode.FINAL_CUT];
   const currentIndex = steps.indexOf(currentMode);
@@ -221,6 +239,8 @@ const App: React.FC = () => {
 
       try {
         const {objectUrl, blob, video} = await generateVideo(params);
+        const duration = await getVideoDuration(objectUrl);
+
         setScenes((prev) =>
           prev.map((s) =>
             s.id === sceneId
@@ -230,6 +250,7 @@ const App: React.FC = () => {
                   videoUrl: objectUrl,
                   videoBlob: blob,
                   videoObject: video,
+                  duration: duration,
                   errorMessage: undefined,
                 }
               : s,

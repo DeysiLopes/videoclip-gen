@@ -71,6 +71,7 @@ export enum SceneStatus {
 export interface Scene {
   id: string;
   timestamp: number; // in seconds
+  duration?: number; // in seconds
   prompt: string;
   status: SceneStatus;
   videoUrl?: string;

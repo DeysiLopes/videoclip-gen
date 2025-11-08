@@ -4,6 +4,7 @@
 */
 import React, {useCallback, useEffect, useRef, useState} from 'react';
 import {Scene} from '../types';
+import VisualTimeline from './VisualTimeline';
 
 interface FinalCutProps {
   scenes: Scene[];
@@ -17,6 +18,8 @@ const FinalCut: React.FC<FinalCutProps> = ({scenes, audioUrl, onBack}) => {
   const audioRef = useRef<HTMLAudioElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
   
   useEffect(() => {
     const video = videoRef.current;
@@ -26,7 +29,6 @@ const FinalCut: React.FC<FinalCutProps> = ({scenes, audioUrl, onBack}) => {
       if (currentSceneIndex < sortedScenes.length - 1) {
         setCurrentSceneIndex(currentSceneIndex + 1);
       } else {
-        // End of playlist
         setIsPlaying(false);
         if (audioRef.current) {
           audioRef.current.pause();
@@ -40,12 +42,10 @@ const FinalCut: React.FC<FinalCutProps> = ({scenes, audioUrl, onBack}) => {
   }, [currentSceneIndex, sortedScenes.length]);
 
   useEffect(() => {
-     // Autoplay next video when index changes
      if (isPlaying && videoRef.current) {
        videoRef.current.play();
      }
   }, [currentSceneIndex, isPlaying]);
-
 
   const handlePlayPause = () => {
     const video = videoRef.current;
@@ -68,7 +68,7 @@ const FinalCut: React.FC<FinalCutProps> = ({scenes, audioUrl, onBack}) => {
        if (scene.videoBlob) {
          const a = document.createElement('a');
          a.href = URL.createObjectURL(scene.videoBlob);
-         a.download = `scene_${index + 1}_${scene.prompt.slice(0, 15)}.mp4`;
+         a.download = `scene_${String(index + 1).padStart(2, '0')}.mp4`;
          document.body.appendChild(a);
          a.click();
          document.body.removeChild(a);
@@ -76,6 +76,19 @@ const FinalCut: React.FC<FinalCutProps> = ({scenes, audioUrl, onBack}) => {
        }
      })
   };
+  
+  const handleTimeUpdate = useCallback(() => {
+    if (audioRef.current) {
+       setCurrentTime(audioRef.current.currentTime);
+    }
+  }, []);
+
+  const handleLoadedMetadata = useCallback(() => {
+     if (audioRef.current) {
+       setDuration(audioRef.current.duration);
+    }
+  }, []);
+
 
   const currentScene = sortedScenes[currentSceneIndex];
   
@@ -103,11 +116,27 @@ const FinalCut: React.FC<FinalCutProps> = ({scenes, audioUrl, onBack}) => {
           muted
           className="w-full h-full object-contain"
         />
-        <div className="absolute bottom-4 left-4 bg-black/50 p-2 rounded-md">
-           <p className="text-white text-sm">Scene {currentSceneIndex + 1}: {currentScene.prompt}</p>
+        <div className="absolute bottom-4 left-4 bg-black/50 p-2 rounded-md max-w-[calc(100%-2rem)]">
+           <p className="text-white text-sm truncate">Scene {currentSceneIndex + 1}: {currentScene.prompt}</p>
         </div>
       </div>
-       {audioUrl && <audio ref={audioRef} src={audioUrl} />}
+       {audioUrl && (
+          <div className="w-full max-w-3xl">
+            <audio 
+              ref={audioRef} 
+              src={audioUrl} 
+              onTimeUpdate={handleTimeUpdate}
+              onLoadedMetadata={handleLoadedMetadata}
+            />
+            <VisualTimeline
+              scenes={sortedScenes}
+              totalDuration={duration}
+              currentTime={currentTime}
+              onSeek={() => {}}
+              activeSceneId={currentScene.id}
+            />
+           </div>
+       )}
        
       <div className="flex flex-col items-center gap-4">
         <button onClick={handlePlayPause} className="px-8 py-3 bg-purple-600 text-lg rounded-full font-bold">
