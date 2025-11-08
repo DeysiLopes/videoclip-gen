@@ -475,7 +475,7 @@ const App: React.FC = () => {
       )}
       <header className="py-6 flex flex-col justify-center items-center px-8 relative z-10 shrink-0 gap-8">
         <h1 className="text-5xl font-semibold tracking-wide text-center bg-gradient-to-r from-indigo-400 via-purple-500 to-pink-500 bg-clip-text text-transparent">
-          Veo Studio
+          DreamDirector AI
         </h1>
         <Stepper currentMode={appMode} />
       </header>
