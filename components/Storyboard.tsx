@@ -125,7 +125,7 @@ const Storyboard: React.FC<StoryboardProps> = ({
         )}
       </div>
 
-      <div className="pt-6 mt-4 border-t border-gray-700 flex justify-between items-center">
+      <div className="pt-6 mt-4 border-t border-gray-700 flex flex-col md:flex-row justify-between items-center gap-4">
         <div className="flex items-center gap-4">
           <button
             onClick={onBack}
@@ -140,11 +140,11 @@ const Storyboard: React.FC<StoryboardProps> = ({
             Add Scene
           </button>
         </div>
-        <div className="text-right">
+        <div className="w-full md:w-auto text-center md:text-right">
           <button
             onClick={onComplete}
             disabled={scenes.length === 0}
-            className="px-8 py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg transition-colors text-lg inline-flex items-center justify-center gap-2 disabled:bg-gray-600 disabled:cursor-not-allowed">
+            className="w-full md:w-auto px-8 py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg transition-colors text-lg inline-flex items-center justify-center gap-2 disabled:bg-gray-600 disabled:cursor-not-allowed">
             Proceed to Final Cut ({approvedScenesCount})
             <ArrowRightIcon className="w-5 h-5" />
           </button>

@@ -46,7 +46,7 @@ const Stepper: React.FC<{currentMode: AppMode}> = ({currentMode}) => {
         {steps.map((step, stepIdx) => (
           <li
             key={step}
-            className={`relative ${stepIdx !== steps.length - 1 ? 'pr-8 sm:pr-20' : ''}`}>
+            className={`relative ${stepIdx !== steps.length - 1 ? 'pr-4 sm:pr-12 md:pr-20' : ''}`}>
             {stepIdx < currentIndex ? (
               <>
                 <div

@@ -1,0 +1,17 @@
+{
+  "short_name": "Veo Studio",
+  "name": "Veo Studio - AI Video Generator",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "type": "image/svg+xml",
+      "sizes": "192x192 512x512"
+    }
+  ],
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#1a202c",
+  "background_color": "#000000",
+  "description": "An effortless video generator powered by Veo."
+}
