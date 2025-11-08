@@ -1,4 +1,4 @@
-const CACHE_NAME = 'veo-studio-cache-v1';
+const CACHE_NAME = 'dreamdirector-ai-cache-v1';
 const urlsToCache = [
   '/',
   '/index.html',
