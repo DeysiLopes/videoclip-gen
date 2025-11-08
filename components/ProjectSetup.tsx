@@ -255,6 +255,7 @@ const StyleUploader: React.FC<{
 
 interface ProjectSetupProps {
   onComplete: (config: ProjectConfig) => void;
+  initialConfig?: ProjectConfig | null;
 }
 
 const parseConfigFromSheet = (text: string) => {
@@ -281,7 +282,10 @@ const parseConfigFromSheet = (text: string) => {
   return {aspectRatio, resolution};
 };
 
-const ProjectSetup: React.FC<ProjectSetupProps> = ({onComplete}) => {
+const ProjectSetup: React.FC<ProjectSetupProps> = ({
+  onComplete,
+  initialConfig,
+}) => {
   const [technicalSheet, setTechnicalSheet] = useState(defaultTechnicalSheet);
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>(
     () => parseConfigFromSheet(defaultTechnicalSheet).aspectRatio,
@@ -295,6 +299,28 @@ const ProjectSetup: React.FC<ProjectSetupProps> = ({onComplete}) => {
   const [styleSourceFile, setStyleSourceFile] = useState<File | null>(null);
   const [audioFile, setAudioFile] = useState<File | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (initialConfig) {
+      setTechnicalSheet(initialConfig.technicalSheet);
+      const {aspectRatio, resolution} = parseConfigFromSheet(
+        initialConfig.technicalSheet,
+      );
+      setAspectRatio(aspectRatio);
+      setResolution(resolution);
+      setCharacterImage(initialConfig.characterImage);
+      const firstStyleImage = initialConfig.styleImages?.[0];
+      if (firstStyleImage) {
+        setStyleImage(firstStyleImage);
+        setStyleSourceFile(firstStyleImage.file);
+      } else {
+        setStyleImage(null);
+        setStyleSourceFile(null);
+      }
+      setAudioFile(initialConfig.audioFile);
+      setAudioUrl(initialConfig.audioUrl);
+    }
+  }, [initialConfig]);
 
   const handleAudioUpload = useCallback(
     (file: File) => {

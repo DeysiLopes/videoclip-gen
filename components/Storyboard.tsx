@@ -6,6 +6,7 @@ import React, {useEffect, useRef, useState} from 'react';
 import {ProjectConfig, Scene, SceneStatus} from '../types';
 import {
   ApproveIcon,
+  ArrowLeftIcon,
   ArrowPathIcon,
   ArrowRightIcon,
   ClockIcon,
@@ -164,6 +165,7 @@ interface StoryboardProps {
   setScenes: React.Dispatch<React.SetStateAction<Scene[]>>;
   onGenerateScene: (sceneId: string) => void;
   onComplete: () => void;
+  onBack: () => void;
   projectConfig: ProjectConfig;
 }
 
@@ -172,6 +174,7 @@ const Storyboard: React.FC<StoryboardProps> = ({
   setScenes,
   onGenerateScene,
   onComplete,
+  onBack,
   projectConfig
 }) => {
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -228,16 +231,33 @@ const Storyboard: React.FC<StoryboardProps> = ({
       </div>
 
       <div className="pt-6 mt-4 border-t border-gray-700 flex justify-between items-center">
-        <button onClick={addScene} className="px-6 py-3 bg-gray-700 hover:bg-gray-600 text-white font-semibold rounded-lg transition-colors flex items-center gap-2">
-          <PlusIcon className="w-5 h-5"/>
-          Add Scene
-        </button>
+        <div className="flex items-center gap-4">
+          <button
+            onClick={onBack}
+            className="px-6 py-3 bg-gray-700 hover:bg-gray-600 text-white font-semibold rounded-lg transition-colors flex items-center gap-2">
+            <ArrowLeftIcon className="w-5 h-5" />
+            Back to Setup
+          </button>
+          <button
+            onClick={addScene}
+            className="px-6 py-3 bg-gray-700 hover:bg-gray-600 text-white font-semibold rounded-lg transition-colors flex items-center gap-2">
+            <PlusIcon className="w-5 h-5" />
+            Add Scene
+          </button>
+        </div>
         <div className="text-right">
-           <button onClick={onComplete} disabled={approvedScenesCount === 0} className="px-8 py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg transition-colors text-lg inline-flex items-center justify-center gap-2 disabled:bg-gray-600 disabled:cursor-not-allowed">
+          <button
+            onClick={onComplete}
+            disabled={approvedScenesCount === 0}
+            className="px-8 py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg transition-colors text-lg inline-flex items-center justify-center gap-2 disabled:bg-gray-600 disabled:cursor-not-allowed">
             Proceed to Final Cut ({approvedScenesCount})
             <ArrowRightIcon className="w-5 h-5" />
           </button>
-          {approvedScenesCount === 0 && <p className="text-xs text-gray-500 mt-1">Approve at least one scene to continue.</p>}
+          {approvedScenesCount === 0 && (
+            <p className="text-xs text-gray-500 mt-1">
+              Approve at least one scene to continue.
+            </p>
+          )}
         </div>
       </div>
     </div>

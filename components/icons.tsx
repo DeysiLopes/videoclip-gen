@@ -5,6 +5,7 @@
 import React from 'react';
 import {
   ArrowDown,
+  ArrowLeft,
   ArrowRight,
   Baseline,
   CheckCircle2,
@@ -58,6 +59,10 @@ export const SlidersHorizontalIcon: React.FC<React.SVGProps<SVGSVGElement>> = (
 export const ArrowRightIcon: React.FC<React.SVGProps<SVGSVGElement>> = (
   props,
 ) => <ArrowRight {...defaultProps} {...props} />;
+
+export const ArrowLeftIcon: React.FC<React.SVGProps<SVGSVGElement>> = (
+  props,
+) => <ArrowLeft {...defaultProps} {...props} />;
 
 export const RectangleStackIcon: React.FC<React.SVGProps<SVGSVGElement>> = (
   props,

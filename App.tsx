@@ -125,6 +125,10 @@ const App: React.FC = () => {
     setAppMode(AppMode.STORYBOARD);
   }, []);
 
+  const handleBackToSetup = useCallback(() => {
+    setAppMode(AppMode.SETUP);
+  }, []);
+
   const handleGenerateScene = useCallback(
     async (sceneId: string) => {
       if (!projectConfig) return;
@@ -254,7 +258,12 @@ const App: React.FC = () => {
   const renderContent = () => {
     switch (appMode) {
       case AppMode.SETUP:
-        return <ProjectSetup onComplete={handleProjectSetupComplete} />;
+        return (
+          <ProjectSetup
+            onComplete={handleProjectSetupComplete}
+            initialConfig={projectConfig}
+          />
+        );
       case AppMode.STORYBOARD:
         return (
           <Storyboard
@@ -262,6 +271,7 @@ const App: React.FC = () => {
             setScenes={setScenes}
             onGenerateScene={handleGenerateScene}
             onComplete={() => setAppMode(AppMode.FINAL_CUT)}
+            onBack={handleBackToSetup}
             projectConfig={projectConfig!}
           />
         );
