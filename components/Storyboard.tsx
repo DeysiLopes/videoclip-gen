@@ -12,41 +12,12 @@ import {
 import SceneCard from './SceneCard';
 import VisualTimeline from './VisualTimeline';
 
-const parseTime = (timeStr: string): number => {
-  const parts = timeStr.split(':').map(Number);
-  if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
-    return parts[0] * 60 + parts[1];
-  }
-  return 0;
-};
-
-// This regex is designed to be flexible and capture various time formats
-// e.g., (0:00 - 0:35), (0:00 – 0:35), 0:35 – 1:05, Duração: 0:30
-const timeRegex = /(?:(\d{1,2}:\d{2})\s*(?:-|–)\s*(\d{1,2}:\d{2}))|(?:Duração sugerida|Duração|Duration):\s*(\d{1,2}:\d{2})/i;
-
-
-const parsePromptForTime = (prompt: string, previousSceneEnd: number): { timestamp: number, intendedDuration?: number } => {
-    const match = prompt.match(timeRegex);
-    if (match) {
-        if (match[1] && match[2]) { // Format: 0:00 - 0:35
-            const start = parseTime(match[1]);
-            const end = parseTime(match[2]);
-            if (end > start) {
-                return { timestamp: start, intendedDuration: end - start };
-            }
-        } else if (match[3]) { // Format: Duração: 0:30
-            const duration = parseTime(match[3]);
-            return { timestamp: previousSceneEnd, intendedDuration: duration };
-        }
-    }
-    // Default: start at the end of the last scene
-    return { timestamp: previousSceneEnd };
-};
-
 
 interface StoryboardProps {
   scenes: Scene[];
-  setScenes: React.Dispatch<React.SetStateAction<Scene[]>>;
+  onAddScene: () => void;
+  onUpdateScene: (id: string, updates: Partial<Scene>) => void;
+  onDeleteScene: (id: string) => void;
   onGenerateScene: (sceneId: string) => void;
   onComplete: () => void;
   onBack: () => void;
@@ -55,7 +26,9 @@ interface StoryboardProps {
 
 const Storyboard: React.FC<StoryboardProps> = ({
   scenes,
-  setScenes,
+  onAddScene,
+  onUpdateScene,
+  onDeleteScene,
   onGenerateScene,
   onComplete,
   onBack,
@@ -66,49 +39,26 @@ const Storyboard: React.FC<StoryboardProps> = ({
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
 
-  const addScene = () => {
-    const lastScene = scenes[scenes.length - 1];
-    const previousSceneEnd = lastScene ? (lastScene.timestamp + (lastScene.intendedDuration ?? lastScene.duration ?? 0)) : 0;
-    
-    const newScene: Scene = {
-      id: Date.now().toString(),
-      prompt: '',
-      timestamp: previousSceneEnd,
-      status: SceneStatus.DRAFT,
-    };
-    const newScenes = [...scenes, newScene].sort((a, b) => a.timestamp - b.timestamp);
-    setScenes(newScenes);
-  };
-  
-  const updateScene = (id: string, updates: Partial<Scene>) => {
-    setScenes(prev => {
-        let lastSceneEnd = 0;
-        const updatedScenes = prev.map((s, index) => {
-          const prevScene = index > 0 ? prev[index - 1] : null;
-          lastSceneEnd = prevScene ? (prevScene.timestamp + (prevScene.intendedDuration ?? prevScene.duration ?? 0)) : 0;
-
-          if (s.id === id) {
-            const newPrompt = updates.prompt ?? s.prompt;
-            const timeInfo = parsePromptForTime(newPrompt, lastSceneEnd);
-            return {...s, ...updates, ...timeInfo};
-          }
-          return s;
-        });
-        
-        updatedScenes.sort((a,b) => a.timestamp - b.timestamp);
-        return updatedScenes;
-    });
-  };
-  
-  const deleteScene = (id: string) => {
-    setScenes(prev => prev.filter(s => s.id !== id));
-  };
+  const activeScene = scenes.find(s => {
+    const sceneDuration = s.intendedDuration ?? s.duration;
+    if (sceneDuration === undefined) return false;
+    return currentTime >= s.timestamp && currentTime < s.timestamp + sceneDuration;
+  });
 
   const handleTimeUpdate = useCallback(() => {
     if (audioRef.current) {
-       setCurrentTime(audioRef.current.currentTime);
+       const newTime = audioRef.current.currentTime;
+       setCurrentTime(newTime);
+
+       // Intelligent Scene Looping
+       if (isPlaying && activeScene) {
+         const sceneEndTime = activeScene.timestamp + (activeScene.intendedDuration ?? activeScene.duration ?? 0);
+         if (newTime >= sceneEndTime || newTime < activeScene.timestamp) {
+           audioRef.current.currentTime = activeScene.timestamp;
+         }
+       }
     }
-  }, []);
+  }, [isPlaying, activeScene]);
 
   const handleLoadedMetadata = useCallback(() => {
      if (audioRef.current) {
@@ -122,12 +72,6 @@ const Storyboard: React.FC<StoryboardProps> = ({
       setCurrentTime(time);
     }
   }
-
-  const activeScene = scenes.find(s => {
-    const sceneDuration = s.intendedDuration ?? s.duration;
-    if (sceneDuration === undefined) return false;
-    return currentTime >= s.timestamp && currentTime < s.timestamp + sceneDuration;
-  });
 
   const approvedScenesCount = scenes.filter(s => s.status === SceneStatus.APPROVED).length;
 
@@ -169,8 +113,8 @@ const Storyboard: React.FC<StoryboardProps> = ({
                 key={scene.id}
                 scene={scene}
                 sceneNumber={index + 1}
-                onUpdate={updateScene}
-                onDelete={deleteScene}
+                onUpdate={onUpdateScene}
+                onDelete={onDeleteScene}
                 onGenerate={onGenerateScene}
                 isActive={scene.id === activeScene?.id}
                 isPlaying={isPlaying}
@@ -190,7 +134,7 @@ const Storyboard: React.FC<StoryboardProps> = ({
             Back to Setup
           </button>
           <button
-            onClick={addScene}
+            onClick={onAddScene}
             className="px-6 py-3 bg-gray-700 hover:bg-gray-600 text-white font-semibold rounded-lg transition-colors flex items-center gap-2">
             <PlusIcon className="w-5 h-5" />
             Add Scene

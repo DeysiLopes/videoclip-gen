@@ -19,6 +19,7 @@ import {
   Pencil,
   Plus,
   RefreshCw,
+  Repeat,
   Replace,
   SlidersHorizontal,
   Sparkles,
@@ -119,6 +120,11 @@ export const DeleteIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
 export const UploadIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
   <UploadCloud {...defaultProps} {...props} />
 );
+
+export const LoopIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
+  <Repeat {...defaultProps} {...props} />
+);
+
 
 // This icon had a different stroke width in the original file, so we preserve it.
 export const CurvedArrowDownIcon: React.FC<React.SVGProps<SVGSVGElement>> = (

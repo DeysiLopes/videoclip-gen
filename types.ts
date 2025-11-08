@@ -79,6 +79,7 @@ export interface Scene {
   videoBlob?: Blob;
   videoObject?: Video;
   errorMessage?: string;
+  errorType?: 'QUOTA_EXCEEDED';
 }
 
 export interface VeoApiParams {
@@ -86,6 +87,7 @@ export interface VeoApiParams {
   model: VeoModel;
   aspectRatio: AspectRatio;
   resolution: Resolution;
+  durationSeconds?: number;
   referenceImages?: ImageFile[];
   styleImage?: ImageFile | null;
   inputVideo?: Video | null;

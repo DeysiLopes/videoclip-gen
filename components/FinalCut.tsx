@@ -14,50 +14,62 @@ interface FinalCutProps {
 
 const FinalCut: React.FC<FinalCutProps> = ({scenes, audioUrl, onBack}) => {
   const sortedScenes = [...scenes].sort((a, b) => a.timestamp - b.timestamp);
-  const [currentSceneIndex, setCurrentSceneIndex] = useState(0);
   const audioRef = useRef<HTMLAudioElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
-  
+  const [activeScene, setActiveScene] = useState<Scene | null>(sortedScenes[0] || null);
+
+  // Effect to find the active scene based on audio time
+  useEffect(() => {
+    const scene = sortedScenes.find(s => {
+        const sceneDuration = s.intendedDuration ?? s.duration ?? 0;
+        if (sceneDuration === 0) return false;
+        return currentTime >= s.timestamp && currentTime < s.timestamp + sceneDuration;
+    });
+    // Set activeScene only if it's different to avoid re-renders
+    setActiveScene(current => (current?.id !== scene?.id ? (scene || null) : current));
+  }, [currentTime, sortedScenes]);
+
+  // Effect to control the video player based on active scene and audio time
   useEffect(() => {
     const video = videoRef.current;
-    if (!video) return;
+    if (!video || !activeScene) return;
 
-    const handleVideoEnd = () => {
-      if (currentSceneIndex < sortedScenes.length - 1) {
-        setCurrentSceneIndex(currentSceneIndex + 1);
-      } else {
-        setIsPlaying(false);
-        if (audioRef.current) {
-          audioRef.current.pause();
-        }
-      }
-    };
-    
-    video.addEventListener('ended', handleVideoEnd);
-    return () => video.removeEventListener('ended', handleVideoEnd);
+    // This is the core logic for synchronized looping within the scene's slot
+    const sceneStartTime = activeScene.timestamp;
+    const sceneActualDuration = activeScene.duration ?? 1; // Avoid division by zero
+    const relativeTime = (currentTime - sceneStartTime) % sceneActualDuration; 
 
-  }, [currentSceneIndex, sortedScenes.length]);
+    // Seek only if the difference is significant to prevent stuttering
+    if (Math.abs(video.currentTime - relativeTime) > 0.2) {
+      video.currentTime = relativeTime;
+    }
 
-  useEffect(() => {
-     if (isPlaying && videoRef.current) {
-       videoRef.current.play();
-     }
-  }, [currentSceneIndex, isPlaying]);
+    // Sync play/pause state
+    if (isPlaying && video.paused) {
+      video.play().catch(e => console.error("FinalCut video play failed:", e));
+    } else if (!isPlaying && !video.paused) {
+      video.pause();
+    }
+  }, [activeScene, currentTime, isPlaying]);
+
 
   const handlePlayPause = () => {
-    const video = videoRef.current;
     const audio = audioRef.current;
-    if (!video || !audio) return;
+    if (!audio) return;
 
     if (isPlaying) {
-      video.pause();
       audio.pause();
     } else {
-      audio.currentTime = sortedScenes[currentSceneIndex].timestamp + video.currentTime;
-      video.play();
+       // If paused at the end, restart from the beginning of the first scene
+      if (currentTime >= duration - 0.1 && duration > 0) {
+        const firstSceneTimestamp = sortedScenes[0]?.timestamp ?? 0;
+        audio.currentTime = firstSceneTimestamp;
+        setCurrentTime(firstSceneTimestamp);
+      }
       audio.play();
     }
     setIsPlaying(!isPlaying);
@@ -79,18 +91,32 @@ const FinalCut: React.FC<FinalCutProps> = ({scenes, audioUrl, onBack}) => {
   
   const handleTimeUpdate = useCallback(() => {
     if (audioRef.current) {
-       setCurrentTime(audioRef.current.currentTime);
+        const lastScene = sortedScenes[sortedScenes.length - 1];
+        if (!lastScene) return;
+        
+        const lastSceneEndTime = lastScene.timestamp + (lastScene.intendedDuration ?? lastScene.duration ?? 0);
+
+        // Auto-pause and reset when the last scene finishes
+        if (audioRef.current.currentTime >= lastSceneEndTime) {
+            audioRef.current.pause();
+            setIsPlaying(false);
+            const firstSceneTimestamp = sortedScenes[0]?.timestamp ?? 0;
+            audioRef.current.currentTime = firstSceneTimestamp;
+            setCurrentTime(firstSceneTimestamp);
+        } else {
+             setCurrentTime(audioRef.current.currentTime);
+        }
     }
-  }, []);
+  }, [sortedScenes]);
 
   const handleLoadedMetadata = useCallback(() => {
      if (audioRef.current) {
        setDuration(audioRef.current.duration);
+       const firstSceneTimestamp = sortedScenes[0]?.timestamp ?? 0;
+       audioRef.current.currentTime = firstSceneTimestamp;
+       setCurrentTime(firstSceneTimestamp);
     }
-  }, []);
-
-
-  const currentScene = sortedScenes[currentSceneIndex];
+  }, [sortedScenes]);
   
   if (sortedScenes.length === 0) {
       return (
@@ -111,14 +137,18 @@ const FinalCut: React.FC<FinalCutProps> = ({scenes, audioUrl, onBack}) => {
       <div className="w-full max-w-3xl aspect-video rounded-lg overflow-hidden bg-black shadow-lg relative">
         <video
           ref={videoRef}
-          key={currentScene.id}
-          src={currentScene.videoUrl}
+          key={activeScene?.id}
+          src={activeScene?.videoUrl}
           muted
+          loop
+          playsInline
           className="w-full h-full object-contain"
         />
-        <div className="absolute bottom-4 left-4 bg-black/50 p-2 rounded-md max-w-[calc(100%-2rem)]">
-           <p className="text-white text-sm truncate">Scene {currentSceneIndex + 1}: {currentScene.prompt}</p>
-        </div>
+        {activeScene && (
+          <div className="absolute bottom-4 left-4 bg-black/50 p-2 rounded-md max-w-[calc(100%-2rem)]">
+            <p className="text-white text-sm truncate">Scene {sortedScenes.findIndex(s => s.id === activeScene.id) + 1}: {activeScene.prompt}</p>
+          </div>
+        )}
       </div>
        {audioUrl && (
           <div className="w-full max-w-3xl">
@@ -132,8 +162,8 @@ const FinalCut: React.FC<FinalCutProps> = ({scenes, audioUrl, onBack}) => {
               scenes={sortedScenes}
               totalDuration={duration}
               currentTime={currentTime}
-              onSeek={() => {}}
-              activeSceneId={currentScene.id}
+              onSeek={() => {}} // Seeking disabled in final cut preview
+              activeSceneId={activeScene?.id}
             />
            </div>
        )}

@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
 */
 import {Video} from '@google/genai';
-import React, {useCallback, useEffect, useState} from 'react';
+import React, {useCallback, useEffect, useRef, useState} from 'react';
 import ApiKeyDialog from './components/ApiKeyDialog';
 import FinalCut from './components/FinalCut';
 import ProjectSetup from './components/ProjectSetup';
@@ -25,11 +25,9 @@ const getVideoDuration = (url: string): Promise<number> => {
     const video = document.createElement('video');
     video.preload = 'metadata';
     video.onloadedmetadata = () => {
-      URL.revokeObjectURL(video.src);
       resolve(video.duration);
     };
     video.onerror = (e) => {
-      URL.revokeObjectURL(video.src);
       const errorEvent = e as ErrorEvent;
       reject(new Error(`Error loading video for duration check: ${errorEvent.message}`));
     };
@@ -107,6 +105,32 @@ const Stepper: React.FC<{currentMode: AppMode}> = ({currentMode}) => {
   );
 };
 
+const timeRegex = /(?:(\d{1,2}:\d{2})\s*(?:-|–)\s*(\d{1,2}:\d{2}))|(?:Duração sugerida|Duração|Duration):\s*(\d{1,2}:\d{2})/i;
+const parseTime = (timeStr: string): number => {
+  const parts = timeStr.split(':').map(Number);
+  if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+    return parts[0] * 60 + parts[1];
+  }
+  return 0;
+};
+const parsePromptForTime = (prompt: string, previousSceneEnd: number): { timestamp: number, intendedDuration?: number } => {
+    const match = prompt.match(timeRegex);
+    if (match) {
+        if (match[1] && match[2]) {
+            const start = parseTime(match[1]);
+            const end = parseTime(match[2]);
+            if (end > start) {
+                return { timestamp: start, intendedDuration: end - start };
+            }
+        } else if (match[3]) {
+            const duration = parseTime(match[3]);
+            return { timestamp: previousSceneEnd, intendedDuration: duration };
+        }
+    }
+    return { timestamp: previousSceneEnd };
+};
+
+
 const App: React.FC = () => {
   const [appMode, setAppMode] = useState<AppMode>(AppMode.SETUP);
   const [projectConfig, setProjectConfig] = useState<ProjectConfig | null>(
@@ -114,6 +138,18 @@ const App: React.FC = () => {
   );
   const [scenes, setScenes] = useState<Scene[]>([]);
   const [showApiKeyDialog, setShowApiKeyDialog] = useState(false);
+  const objectUrls = useRef(new Set<string>());
+
+  useEffect(() => {
+    // Cleanup any created object URLs on component unmount
+    return () => {
+      objectUrls.current.forEach(url => URL.revokeObjectURL(url));
+      if (projectConfig?.audioUrl) {
+          URL.revokeObjectURL(projectConfig.audioUrl);
+      }
+    };
+  }, [projectConfig?.audioUrl]);
+
 
   useEffect(() => {
     const checkApiKey = async () => {
@@ -129,6 +165,53 @@ const App: React.FC = () => {
       }
     };
     checkApiKey();
+  }, []);
+
+  const addScene = useCallback(() => {
+    const sorted = [...scenes].sort((a,b) => a.timestamp - b.timestamp);
+    const lastScene = sorted[sorted.length - 1];
+    const previousSceneEnd = lastScene ? (lastScene.timestamp + (lastScene.intendedDuration ?? lastScene.duration ?? 0)) : 0;
+    
+    const newScene: Scene = {
+      id: Date.now().toString(),
+      prompt: '',
+      timestamp: previousSceneEnd,
+      status: SceneStatus.DRAFT,
+    };
+    const newScenes = [...scenes, newScene].sort((a, b) => a.timestamp - b.timestamp);
+    setScenes(newScenes);
+  }, [scenes]);
+  
+  const updateScene = useCallback((id: string, updates: Partial<Scene>) => {
+    setScenes(prev => {
+        const sortedPrev = [...prev].sort((a, b) => a.timestamp - b.timestamp);
+        let lastSceneEnd = 0;
+        const updatedScenes = sortedPrev.map((s, index) => {
+          const prevScene = index > 0 ? sortedPrev[index - 1] : null;
+          lastSceneEnd = prevScene ? (prevScene.timestamp + (prevScene.intendedDuration ?? prevScene.duration ?? 0)) : 0;
+
+          if (s.id === id) {
+            const newPrompt = updates.prompt ?? s.prompt;
+            const timeInfo = parsePromptForTime(newPrompt, lastSceneEnd);
+            return {...s, ...updates, ...timeInfo};
+          }
+          return s;
+        });
+        
+        updatedScenes.sort((a,b) => a.timestamp - b.timestamp);
+        return updatedScenes;
+    });
+  }, []);
+  
+  const deleteScene = useCallback((id: string) => {
+    setScenes(prev => {
+        const sceneToDelete = prev.find(s => s.id === id);
+        if (sceneToDelete?.videoUrl) {
+            URL.revokeObjectURL(sceneToDelete.videoUrl);
+            objectUrls.current.delete(sceneToDelete.videoUrl);
+        }
+        return prev.filter(s => s.id !== id);
+    });
   }, []);
 
   const handleApiKeyDialogContinue = async () => {
@@ -154,6 +237,12 @@ const App: React.FC = () => {
       const sceneToGenerate = scenes.find((s) => s.id === sceneId);
       if (!sceneToGenerate) return;
 
+      // Revoke old URL if it exists, before generating a new one
+      if (sceneToGenerate.videoUrl) {
+        URL.revokeObjectURL(sceneToGenerate.videoUrl);
+        objectUrls.current.delete(sceneToGenerate.videoUrl);
+      }
+      
       if (window.aistudio) {
         try {
           if (!(await window.aistudio.hasSelectedApiKey())) {
@@ -172,15 +261,12 @@ const App: React.FC = () => {
         ),
       );
 
-      // --- Continuity Logic ---
-      // Find previous approved video to ensure scenes connect
       const sortedScenes = [...scenes].sort((a, b) => a.timestamp - b.timestamp);
       const sceneIndex = sortedScenes.findIndex((s) => s.id === sceneId);
       let previousVideo: Video | undefined = undefined;
       if (sceneIndex > 0) {
         for (let i = sceneIndex - 1; i >= 0; i--) {
           const prevScene = sortedScenes[i];
-          // Use the last approved video as the starting point
           if (
             prevScene.videoObject &&
             prevScene.status === SceneStatus.APPROVED
@@ -190,18 +276,18 @@ const App: React.FC = () => {
           }
         }
       }
-      // --- End Continuity Logic ---
 
       const hasReferences =
         projectConfig.characterImages.length > 0 || projectConfig.styleImages.length > 0;
       const isExtending = !!previousVideo;
-
-      // The high-quality model is required for references or extending
       const useVeoHighQuality = hasReferences || isExtending;
 
-      // --- Prompt Engineering ---
       const characterInstruction = projectConfig.characterImages.length > 0
         ? `CRITICAL INSTRUCTION: For the main character, prioritize the likeness and face from the provided reference images ONLY. For all other attributes (costume, environment, etc.), strictly follow the Technical Sheet and Scene Description.`
+        : '';
+        
+      const singingInstruction = projectConfig.characterImages.length > 0
+        ? `The main character should appear to be singing or performing the song. Ensure the mouth movements are varied and expressive, matching the emotional tone of a gospel performance, rather than just opening and closing randomly.`
         : '';
 
       const continuityInstruction = isExtending
@@ -211,24 +297,38 @@ const App: React.FC = () => {
       const finalPrompt = [
         projectConfig.technicalSheet,
         characterInstruction,
+        singingInstruction,
         continuityInstruction,
         `---`,
         `SCENE DESCRIPTION:\n${sceneToGenerate.prompt}`,
       ]
         .filter(Boolean)
         .join('\n\n');
-      // --- End Prompt Engineering ---
+
+      let durationForApi: number | undefined = sceneToGenerate.intendedDuration;
+
+      // Clamp duration for the high-quality model which has strict limitations
+      if (useVeoHighQuality && durationForApi) {
+        const VEO_HQ_MIN_DURATION = 4;
+        const VEO_HQ_MAX_DURATION = 8;
+        if (durationForApi < VEO_HQ_MIN_DURATION) {
+          durationForApi = VEO_HQ_MIN_DURATION;
+        }
+        if (durationForApi > VEO_HQ_MAX_DURATION) {
+          durationForApi = VEO_HQ_MAX_DURATION;
+        }
+      }
 
       const params: VeoApiParams = {
         prompt: finalPrompt,
         model: useVeoHighQuality ? VeoModel.VEO : VeoModel.VEO_FAST,
-        // Enforce 720p and 16:9 for the high quality model (required for references/extending)
         aspectRatio: useVeoHighQuality
           ? AspectRatio.LANDSCAPE
           : projectConfig.aspectRatio,
         resolution: useVeoHighQuality
           ? Resolution.P720
           : projectConfig.resolution,
+        durationSeconds: durationForApi,
         referenceImages: projectConfig.characterImages,
         styleImage: projectConfig.styleImages[0] ?? null,
         inputVideo: previousVideo,
@@ -236,6 +336,7 @@ const App: React.FC = () => {
 
       try {
         const {objectUrl, blob, video} = await generateVideo(params);
+        objectUrls.current.add(objectUrl);
         const duration = await getVideoDuration(objectUrl);
 
         setScenes((prev) =>
@@ -249,14 +350,27 @@ const App: React.FC = () => {
                   videoObject: video,
                   duration: duration,
                   errorMessage: undefined,
+                  errorType: undefined,
                 }
               : s,
           ),
         );
       } catch (error) {
         console.error('Scene generation failed:', error);
-        const errorMessage =
+        let errorMessage =
           error instanceof Error ? error.message : 'An unknown error occurred.';
+        let errorType: 'QUOTA_EXCEEDED' | undefined = undefined;
+
+        try {
+          const apiError = JSON.parse(errorMessage);
+          if (apiError?.error?.code === 429) {
+            errorType = 'QUOTA_EXCEEDED';
+            errorMessage = apiError?.error?.message ?? 'Quota exceeded. Please check your plan and billing details.';
+          }
+        } catch (e) {
+          // Not a JSON error, keep original message
+        }
+
         setScenes((prev) =>
           prev.map((s) =>
             s.id === sceneId
@@ -264,6 +378,7 @@ const App: React.FC = () => {
                   ...s,
                   status: SceneStatus.ERROR,
                   errorMessage: errorMessage,
+                  errorType: errorType,
                 }
               : s,
           ),
@@ -286,7 +401,9 @@ const App: React.FC = () => {
         return (
           <Storyboard
             scenes={scenes}
-            setScenes={setScenes}
+            onAddScene={addScene}
+            onUpdateScene={updateScene}
+            onDeleteScene={deleteScene}
             onGenerateScene={handleGenerateScene}
             onComplete={() => setAppMode(AppMode.FINAL_CUT)}
             onBack={handleBackToSetup}

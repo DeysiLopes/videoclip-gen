@@ -23,6 +23,10 @@ export const generateVideo = async (
     aspectRatio: params.aspectRatio,
   };
 
+  if (params.durationSeconds && params.durationSeconds > 0) {
+    config.durationSeconds = params.durationSeconds;
+  }
+
   const generateVideoPayload: any = {
     model: params.model,
     prompt: params.prompt,

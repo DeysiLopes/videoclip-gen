@@ -10,6 +10,7 @@ import {
   ClockIcon,
   DeleteIcon,
   EditIcon,
+  LoopIcon,
 } from './icons';
 import LoadingIndicator from './LoadingIndicator';
 
@@ -96,6 +97,7 @@ const SceneCard: React.FC<SceneCardProps> = ({
   }
 
   const durationLabel = scene.intendedDuration ? ` / ${formatSeconds(scene.intendedDuration)}` : '';
+  const isLooping = scene.intendedDuration && scene.duration && scene.intendedDuration > scene.duration + 0.1;
 
   return (
     <div className={`bg-gray-800/60 rounded-xl border ${isApproved ? 'border-green-500/50' : 'border-gray-700'} shadow-lg transition-all`}>
@@ -133,15 +135,30 @@ const SceneCard: React.FC<SceneCardProps> = ({
               playsInline 
               className="w-full h-full object-cover" 
             />
-            <div className="absolute bottom-2 left-2 bg-black/60 text-white text-xs px-2 py-0.5 rounded font-mono">
+            <div className="absolute bottom-2 left-2 bg-black/60 text-white text-xs px-2 py-0.5 rounded font-mono flex items-center gap-1.5">
               {formatSeconds(scene.duration ?? 0)}{durationLabel}
+              {isLooping && <LoopIcon className="w-3 h-3" title="This clip is looped to fill the intended duration" />}
             </div>
           </>
         )}
         {scene.status === SceneStatus.ERROR && (
            <div className="p-4 text-center">
              <p className="text-red-400 font-semibold mb-2">Generation Failed</p>
-             <p className="text-red-400/80 text-xs">{scene.errorMessage}</p>
+             {scene.errorType === 'QUOTA_EXCEEDED' ? (
+                <p className="text-red-400/80 text-xs">
+                    You have exceeded your API quota. Please check your plan and billing details.
+                    <a 
+                        href="https://ai.google.dev/gemini-api/docs/rate-limits?hl=pt-br" 
+                        target="_blank" 
+                        rel="noopener noreferrer" 
+                        className="underline hover:text-red-300 ml-1"
+                    >
+                        Learn more.
+                    </a>
+                </p>
+             ) : (
+                <p className="text-red-400/80 text-xs">{scene.errorMessage}</p>
+             )}
            </div>
         )}
         {isApproved && (
