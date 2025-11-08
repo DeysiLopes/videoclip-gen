@@ -29,6 +29,11 @@ export const generateVideo = async (
     config: config,
   };
 
+  if (params.inputVideo) {
+    console.log('Extending previous video.');
+    generateVideoPayload.video = params.inputVideo;
+  }
+
   const referenceImagesPayload: VideoGenerationReferenceImage[] = [];
 
   if (params.referenceImages) {

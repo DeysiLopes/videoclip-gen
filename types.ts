@@ -86,6 +86,7 @@ export interface VeoApiParams {
   resolution: Resolution;
   referenceImages?: ImageFile[];
   styleImage?: ImageFile | null;
+  inputVideo?: Video | null;
 }
 
 // Legacy type, no longer in active use by the new UI flow

@@ -2,6 +2,7 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
 */
+import {Video} from '@google/genai';
 import React, {useCallback, useEffect, useState} from 'react';
 import ApiKeyDialog from './components/ApiKeyDialog';
 import FinalCut from './components/FinalCut';
@@ -10,7 +11,9 @@ import Storyboard from './components/Storyboard';
 import {generateVideo} from './services/geminiService';
 import {
   AppMode,
+  AspectRatio,
   ProjectConfig,
+  Resolution,
   Scene,
   SceneStatus,
   VeoApiParams,
@@ -147,20 +150,69 @@ const App: React.FC = () => {
         ),
       );
 
+      // --- Continuity Logic ---
+      // Find previous video to ensure scenes connect
+      const sortedScenes = [...scenes].sort((a, b) => a.timestamp - b.timestamp);
+      const sceneIndex = sortedScenes.findIndex((s) => s.id === sceneId);
+      let previousVideo: Video | undefined = undefined;
+      if (sceneIndex > 0) {
+        for (let i = sceneIndex - 1; i >= 0; i--) {
+          const prevScene = sortedScenes[i];
+          // Use the last generated or approved video as the starting point
+          if (
+            prevScene.videoObject &&
+            (prevScene.status === SceneStatus.GENERATED ||
+              prevScene.status === SceneStatus.APPROVED)
+          ) {
+            previousVideo = prevScene.videoObject;
+            break;
+          }
+        }
+      }
+      // --- End Continuity Logic ---
+
       const hasReferences =
         projectConfig.characterImage || projectConfig.styleImages.length > 0;
+      const isExtending = !!previousVideo;
 
-      const finalPrompt = `${projectConfig.technicalSheet}\n\n---\n\nSCENE DESCRIPTION:\n${sceneToGenerate.prompt}`;
+      // The high-quality model is required for references or extending
+      const useVeoHighQuality = hasReferences || isExtending;
+
+      // --- Prompt Engineering ---
+      const characterInstruction = projectConfig.characterImage
+        ? `CRITICAL INSTRUCTION: For the main character, prioritize the likeness and face from the provided reference image ONLY. For all other attributes (costume, environment, etc.), strictly follow the Technical Sheet and Scene Description.`
+        : '';
+
+      const continuityInstruction = isExtending
+        ? `This scene is a direct continuation of the previous one. Ensure a seamless visual and narrative transition.`
+        : '';
+
+      const finalPrompt = [
+        projectConfig.technicalSheet,
+        characterInstruction,
+        continuityInstruction,
+        `---`,
+        `SCENE DESCRIPTION:\n${sceneToGenerate.prompt}`,
+      ]
+        .filter(Boolean)
+        .join('\n\n');
+      // --- End Prompt Engineering ---
 
       const params: VeoApiParams = {
         prompt: finalPrompt,
-        model: hasReferences ? VeoModel.VEO : VeoModel.VEO_FAST,
-        aspectRatio: projectConfig.aspectRatio,
-        resolution: projectConfig.resolution,
+        model: useVeoHighQuality ? VeoModel.VEO : VeoModel.VEO_FAST,
+        // Enforce 720p and 16:9 for the high quality model (required for references/extending)
+        aspectRatio: useVeoHighQuality
+          ? AspectRatio.LANDSCAPE
+          : projectConfig.aspectRatio,
+        resolution: useVeoHighQuality
+          ? Resolution.P720
+          : projectConfig.resolution,
         referenceImages: projectConfig.characterImage
           ? [projectConfig.characterImage]
           : [],
         styleImage: projectConfig.styleImages[0] ?? null,
+        inputVideo: previousVideo,
       };
 
       try {
