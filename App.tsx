@@ -68,7 +68,7 @@ const Stepper: React.FC<{currentMode: AppMode}> = ({currentMode}) => {
                     />
                   </svg>
                 </div>
-                <span className="absolute -bottom-8 left-4 -translate-x-1/2 w-24 text-xs text-center text-indigo-400 font-semibold">
+                <span className="absolute -bottom-8 left-4 -translate-x-1/2 w-16 text-xs text-center text-indigo-400 font-semibold">
                   {step}
                 </span>
               </>
@@ -82,7 +82,7 @@ const Stepper: React.FC<{currentMode: AppMode}> = ({currentMode}) => {
                 <div className="relative flex h-8 w-8 items-center justify-center bg-gray-800 border-2 border-indigo-600 rounded-full">
                   <span className="h-2.5 w-2.5 bg-indigo-600 rounded-full" />
                 </div>
-                <span className="absolute -bottom-8 left-4 -translate-x-1/2 w-24 text-xs text-center text-white font-semibold">
+                <span className="absolute -bottom-8 left-4 -translate-x-1/2 w-16 text-xs text-center text-white font-semibold">
                   {step}
                 </span>
               </>
@@ -94,7 +94,7 @@ const Stepper: React.FC<{currentMode: AppMode}> = ({currentMode}) => {
                   <div className="h-0.5 w-full bg-gray-700" />
                 </div>
                 <div className="relative flex h-8 w-8 items-center justify-center bg-gray-800 border-2 border-gray-600 rounded-full" />
-                <span className="absolute -bottom-8 left-4 -translate-x-1/2 w-24 text-xs text-center text-gray-500">
+                <span className="absolute -bottom-8 left-4 -translate-x-1/2 w-16 text-xs text-center text-gray-500">
                   {step}
                 </span>
               </>
