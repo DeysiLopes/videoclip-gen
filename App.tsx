@@ -455,8 +455,8 @@ const App: React.FC = () => {
       case AppMode.FINAL_CUT:
         return (
           <FinalCut
-            scenes={scenes.filter((s) => s.status === SceneStatus.APPROVED || s.status === SceneStatus.GENERATED)}
-            audioUrl={projectConfig?.audioUrl ?? null}
+            scenes={scenes}
+            projectConfig={projectConfig!}
             onBack={() => setAppMode(AppMode.STORYBOARD)}
           />
         );

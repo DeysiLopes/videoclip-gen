@@ -2,17 +2,21 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
 */
-import React, {useCallback, useEffect, useRef, useState} from 'react';
-import {Scene, SceneStatus} from '../types';
+import { FFmpeg } from '@ffmpeg/ffmpeg';
+import { fetchFile, toBlobURL } from '@ffmpeg/util';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { ProjectConfig, Scene, SceneStatus } from '../types';
+import RenderProgressDialog from './RenderProgressDialog';
 import VisualTimeline from './VisualTimeline';
 
 interface FinalCutProps {
   scenes: Scene[];
-  audioUrl: string | null;
+  projectConfig: ProjectConfig;
   onBack: () => void;
 }
 
-const FinalCut: React.FC<FinalCutProps> = ({scenes, audioUrl, onBack}) => {
+const FinalCut: React.FC<FinalCutProps> = ({ scenes, projectConfig, onBack }) => {
+  const { audioUrl, audioFile } = projectConfig;
   const scenesToShow = scenes.filter(s => s.status === SceneStatus.APPROVED || s.status === SceneStatus.GENERATED);
   const sortedScenes = [...scenesToShow].sort((a, b) => a.timestamp - b.timestamp);
   
@@ -23,6 +27,11 @@ const FinalCut: React.FC<FinalCutProps> = ({scenes, audioUrl, onBack}) => {
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [activeScene, setActiveScene] = useState<Scene | null>(sortedScenes[0] || null);
+  
+  const [isRendering, setIsRendering] = useState(false);
+  const [renderProgress, setRenderProgress] = useState(0);
+  const [renderMessage, setRenderMessage] = useState('');
+  const ffmpegRef = useRef(new FFmpeg());
 
   // Effect to find the active scene based on audio time
   useEffect(() => {
@@ -31,7 +40,6 @@ const FinalCut: React.FC<FinalCutProps> = ({scenes, audioUrl, onBack}) => {
         if (sceneDuration === 0) return false;
         return currentTime >= s.timestamp && currentTime < s.timestamp + sceneDuration;
     });
-    // Set activeScene only if it's different to avoid re-renders
     setActiveScene(current => (current?.id !== scene?.id ? (scene || null) : current));
   }, [currentTime, sortedScenes]);
 
@@ -40,17 +48,14 @@ const FinalCut: React.FC<FinalCutProps> = ({scenes, audioUrl, onBack}) => {
     const video = videoRef.current;
     if (!video || !activeScene) return;
 
-    // This is the core logic for synchronized looping within the scene's slot
     const sceneStartTime = activeScene.timestamp;
-    const sceneActualDuration = activeScene.duration ?? 1; // Avoid division by zero
+    const sceneActualDuration = activeScene.duration ?? 1;
     const relativeTime = (currentTime - sceneStartTime) % sceneActualDuration; 
 
-    // Seek only if the difference is significant to prevent stuttering
     if (Math.abs(video.currentTime - relativeTime) > 0.2) {
       video.currentTime = relativeTime;
     }
 
-    // Sync play/pause state
     if (isPlaying && video.paused) {
       video.play().catch(e => console.error("FinalCut video play failed:", e));
     } else if (!isPlaying && !video.paused) {
@@ -58,39 +63,105 @@ const FinalCut: React.FC<FinalCutProps> = ({scenes, audioUrl, onBack}) => {
     }
   }, [activeScene, currentTime, isPlaying]);
 
-
-  const handlePlayPause = () => {
-    const audio = audioRef.current;
-    if (!audio) return;
-
-    if (isPlaying) {
-      audio.pause();
-    } else {
-       // If paused at the end, restart from the beginning of the first scene
-      if (currentTime >= duration - 0.1 && duration > 0) {
-        const firstSceneTimestamp = sortedScenes[0]?.timestamp ?? 0;
-        audio.currentTime = firstSceneTimestamp;
-        setCurrentTime(firstSceneTimestamp);
-      }
-      audio.play();
+  const handleRender = async () => {
+    if (!audioFile) {
+        alert("Audio file is missing. Cannot render.");
+        return;
     }
-    setIsPlaying(!isPlaying);
+    setIsRendering(true);
+    setRenderProgress(0);
+    setRenderMessage('Initializing Render Engine...');
+
+    const ffmpeg = ffmpegRef.current;
+    
+    try {
+        const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd'
+        ffmpeg.on('log', ({ message }) => console.log(message));
+        ffmpeg.on('progress', ({ progress, time }) => {
+            setRenderProgress(progress * 100);
+            setRenderMessage(`Rendering... Frame time: ${time / 1000000}s`);
+        });
+
+        await ffmpeg.load({
+            coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
+            wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+        });
+
+        setRenderMessage('Preparing files...');
+        
+        // Write audio and video files to FFmpeg's virtual filesystem
+        await ffmpeg.writeFile('audio.mp3', await fetchFile(audioFile));
+        for (let i = 0; i < sortedScenes.length; i++) {
+            const scene = sortedScenes[i];
+            if (scene.videoBlob) {
+                const fileName = `scene_${String(i).padStart(2, '0')}.mp4`;
+                await ffmpeg.writeFile(fileName, await fetchFile(scene.videoBlob));
+            }
+        }
+        
+        setRenderMessage('Constructing timeline...');
+
+        const filterComplex: string[] = [];
+        const concatInputs: string[] = [];
+
+        // Build filter graph for looping and concatenation
+        sortedScenes.forEach((scene, i) => {
+            const videoIndex = i;
+            const inputName = `[${videoIndex}:v]`;
+            const outputName = `[v${videoIndex}]`;
+            const intendedDuration = scene.intendedDuration ?? scene.duration ?? 1;
+
+            filterComplex.push(`${inputName}tloop=-1,trim=duration=${intendedDuration},setpts=PTS-STARTPTS${outputName}`);
+            concatInputs.push(outputName);
+        });
+
+        const finalFilter = `${filterComplex.join(';')};${concatInputs.join('')}concat=n=${sortedScenes.length}:v=1:a=0[v]`;
+
+        const command = [
+            // Inputs for videos
+            ...sortedScenes.map((_, i) => `-i`).flatMap((val, i) => [val, `scene_${String(i).padStart(2, '0')}.mp4`]),
+            // Input for audio
+            '-i', 'audio.mp3',
+            // Filter graph
+            '-filter_complex', finalFilter,
+            // Map the final video and original audio streams
+            '-map', '[v]',
+            '-map', `${sortedScenes.length}:a`,
+            // Use a reasonably fast preset
+            '-preset', 'ultrafast',
+            // Set output format
+            'output.mp4'
+        ];
+        
+        setRenderMessage('Rendering video... This may take a few minutes.');
+        await ffmpeg.exec(command);
+
+        setRenderMessage('Finalizing render...');
+        const data = await ffmpeg.readFile('output.mp4');
+
+        const blob = new Blob([(data as Uint8Array).buffer], { type: 'video/mp4' });
+        const url = URL.createObjectURL(blob);
+        
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'DreamDirector_FinalCut.mp4';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        setRenderMessage('Render complete!');
+
+    } catch(error) {
+        console.error("Rendering failed:", error);
+        setRenderMessage(`Error during render: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        // Keep dialog open to show error
+        return; 
+    }
+    
+    setIsRendering(false);
   };
-  
-  const handleDownloadAll = () => {
-     sortedScenes.forEach((scene, index) => {
-       if (scene.videoBlob) {
-         const a = document.createElement('a');
-         a.href = URL.createObjectURL(scene.videoBlob);
-         a.download = `scene_${String(index + 1).padStart(2, '0')}.mp4`;
-         document.body.appendChild(a);
-         a.click();
-         document.body.removeChild(a);
-         URL.revokeObjectURL(a.href);
-       }
-     })
-  };
-  
+
   const handleTimeUpdate = useCallback(() => {
     if (audioRef.current) {
         const lastScene = sortedScenes[sortedScenes.length - 1];
@@ -98,7 +169,6 @@ const FinalCut: React.FC<FinalCutProps> = ({scenes, audioUrl, onBack}) => {
         
         const lastSceneEndTime = lastScene.timestamp + (lastScene.intendedDuration ?? lastScene.duration ?? 0);
 
-        // Auto-pause and reset when the last scene finishes
         if (audioRef.current.currentTime >= lastSceneEndTime) {
             audioRef.current.pause();
             setIsPlaying(false);
@@ -136,6 +206,7 @@ const FinalCut: React.FC<FinalCutProps> = ({scenes, audioUrl, onBack}) => {
 
   return (
     <div className="w-full flex flex-col items-center gap-6 p-4">
+      {isRendering && <RenderProgressDialog message={renderMessage} progress={renderProgress} />}
       <div className="w-full max-w-3xl aspect-video rounded-lg overflow-hidden bg-black shadow-lg relative">
         <video
           ref={videoRef}
@@ -170,30 +241,27 @@ const FinalCut: React.FC<FinalCutProps> = ({scenes, audioUrl, onBack}) => {
            </div>
        )}
        
-      <div className="flex flex-col items-center gap-4">
-        <button onClick={handlePlayPause} className="px-8 py-3 bg-purple-600 text-lg rounded-full font-bold">
-           {isPlaying ? "Pause" : "Play Full Video"}
+      <div className="flex flex-col items-center gap-6 mt-4 p-6 bg-gray-800/50 rounded-xl border border-gray-700 w-full max-w-3xl">
+          <h3 className="text-2xl font-bold text-white">Export Your Masterpiece</h3>
+          <p className="text-gray-400 text-center max-w-lg">
+             Combine all your approved scenes and the master audio track into a single, high-quality video file. This process happens entirely in your browser.
+          </p>
+          <button 
+            onClick={handleRender} 
+            disabled={isRendering}
+            className="px-8 py-4 bg-indigo-600 text-lg rounded-lg font-bold hover:bg-indigo-700 transition-colors disabled:bg-gray-600 disabled:cursor-not-allowed"
+            >
+           {isRendering ? 'Rendering...' : 'Render and Download Video'}
         </button>
-        <div className="flex gap-4">
-           <button
-              onClick={onBack}
-              className="px-6 py-2 bg-gray-700 rounded-lg hover:bg-gray-600 transition-colors">
-              Back to Storyboard
-            </button>
-            <button
-              onClick={handleDownloadAll}
-              className="px-6 py-2 bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors">
-              Download All Clips ({sortedScenes.length})
-            </button>
+        <p className="text-xs text-gray-500 text-center">Rendering may take several minutes depending on video length and your computer's performance.</p>
+        <div className="mt-4">
+             <button
+                onClick={onBack}
+                className="px-6 py-2 bg-gray-700 rounded-lg hover:bg-gray-600 transition-colors">
+                Back to Storyboard
+              </button>
         </div>
       </div>
-      
-       <div className="mt-4 text-center max-w-2xl">
-          <h3 className="text-xl font-bold">Final Assembly</h3>
-          <p className="text-gray-400 mt-2">
-            Your final cut is ready for assembly! Download your approved clips and combine them with your audio track in your favorite video editor to produce the final music video.
-          </p>
-        </div>
     </div>
   );
 };
