@@ -123,7 +123,7 @@ const SceneCard: React.FC<SceneCardProps> = ({
         )}
       </div>
 
-      {scene.status !== SceneStatus.DRAFT && (
+      {!isEditing && scene.status !== SceneStatus.DRAFT && (
         <div className="bg-black/30 aspect-video flex items-center justify-center overflow-hidden relative">
           {scene.status === SceneStatus.GENERATING && <LoadingIndicator />}
           {scene.videoUrl && (
