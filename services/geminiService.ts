@@ -35,20 +35,9 @@ export const generateVideo = async (
   }
 
   const referenceImagesPayload: VideoGenerationReferenceImage[] = [];
+  const MAX_REFERENCE_IMAGES = 3;
 
-  if (params.referenceImages) {
-    for (const img of params.referenceImages) {
-      console.log(`Adding reference image: ${img.file.name}`);
-      referenceImagesPayload.push({
-        image: {
-          imageBytes: img.base64,
-          mimeType: img.file.type,
-        },
-        referenceType: VideoGenerationReferenceType.ASSET,
-      });
-    }
-  }
-
+  // Prioritize style image if it exists
   if (params.styleImage) {
     console.log(
       `Adding style image as a reference: ${params.styleImage.file.name}`,
@@ -60,6 +49,28 @@ export const generateVideo = async (
       },
       referenceType: VideoGenerationReferenceType.STYLE,
     });
+  }
+
+  // Fill remaining slots with character images
+  if (params.referenceImages) {
+    const remainingSlots = MAX_REFERENCE_IMAGES - referenceImagesPayload.length;
+    if (remainingSlots > 0) {
+      const characterImagesToUse = params.referenceImages.slice(
+        0,
+        remainingSlots,
+      );
+
+      for (const img of characterImagesToUse) {
+        console.log(`Adding character reference image: ${img.file.name}`);
+        referenceImagesPayload.push({
+          image: {
+            imageBytes: img.base64,
+            mimeType: img.file.type,
+          },
+          referenceType: VideoGenerationReferenceType.ASSET,
+        });
+      }
+    }
   }
 
   if (referenceImagesPayload.length > 0) {

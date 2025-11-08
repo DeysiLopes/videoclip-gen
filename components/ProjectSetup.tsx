@@ -103,70 +103,6 @@ Costume: Greek-style white dress, golden belt and bracelet, white sandals, long 
 Camera Movements: slow travellings, lateral pans, 360° rotation, final zoom-out
 Visual Effects: golden particles, soft glow, warm flare, natural fade-in/fade-out`;
 
-const ImageUploader: React.FC<{
-  onSelect: (image: ImageFile) => void;
-  onRemove?: () => void;
-  image?: ImageFile | null;
-  label: string;
-  description: string;
-}> = ({onSelect, onRemove, image, label, description}) => {
-  const inputRef = useRef<HTMLInputElement>(null);
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      try {
-        const imageFile = await fileToImageFile(file);
-        onSelect(imageFile);
-      } catch (error) {
-        console.error('Error converting file:', error);
-      }
-    }
-    if (inputRef.current) {
-      inputRef.current.value = '';
-    }
-  };
-
-  return (
-    <div className="bg-gray-800/50 p-6 rounded-xl border border-gray-700 flex items-center gap-6">
-      <div className="flex-grow">
-        <h3 className="text-lg font-semibold text-white">{label}</h3>
-        <p className="text-gray-400 text-sm mt-1">{description}</p>
-      </div>
-      {image ? (
-        <div className="relative w-32 h-32 group flex-shrink-0">
-          <img
-            src={URL.createObjectURL(image.file)}
-            alt="preview"
-            className="w-full h-full object-cover rounded-lg"
-          />
-          <button
-            type="button"
-            onClick={onRemove}
-            className="absolute top-1 right-1 w-6 h-6 bg-black/60 hover:bg-black/80 rounded-full flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity"
-            aria-label="Remove image">
-            <XMarkIcon className="w-4 h-4" />
-          </button>
-        </div>
-      ) : (
-        <button
-          type="button"
-          onClick={() => inputRef.current?.click()}
-          className="w-32 h-32 bg-gray-700/50 hover:bg-gray-700 border-2 border-dashed border-gray-600 rounded-lg flex flex-col items-center justify-center text-gray-400 hover:text-white transition-colors flex-shrink-0">
-          <UploadIcon className="w-8 h-8" />
-          <span className="text-sm mt-2">Upload</span>
-          <input
-            type="file"
-            ref={inputRef}
-            onChange={handleFileChange}
-            accept="image/*"
-            className="hidden"
-          />
-        </button>
-      )}
-    </div>
-  );
-};
-
 const StyleUploader: React.FC<{
   onSelect: (frame: ImageFile, sourceFile: File) => void;
   onRemove: () => void;
@@ -294,11 +230,12 @@ const ProjectSetup: React.FC<ProjectSetupProps> = ({
     () => parseConfigFromSheet(defaultTechnicalSheet).resolution,
   );
 
-  const [characterImage, setCharacterImage] = useState<ImageFile | null>(null);
+  const [characterImages, setCharacterImages] = useState<ImageFile[]>([]);
   const [styleImage, setStyleImage] = useState<ImageFile | null>(null);
   const [styleSourceFile, setStyleSourceFile] = useState<File | null>(null);
   const [audioFile, setAudioFile] = useState<File | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const characterImageInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (initialConfig) {
@@ -308,7 +245,7 @@ const ProjectSetup: React.FC<ProjectSetupProps> = ({
       );
       setAspectRatio(aspectRatio);
       setResolution(resolution);
-      setCharacterImage(initialConfig.characterImage);
+      setCharacterImages(initialConfig.characterImages);
       const firstStyleImage = initialConfig.styleImages?.[0];
       if (firstStyleImage) {
         setStyleImage(firstStyleImage);
@@ -357,13 +294,33 @@ const ProjectSetup: React.FC<ProjectSetupProps> = ({
     setResolution(resolution);
   };
 
+  const handleCharacterImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && characterImages.length < 5) {
+        try {
+            const imageFile = await fileToImageFile(file);
+            setCharacterImages(prev => [...prev, imageFile]);
+        } catch (error) {
+            console.error('Error converting file:', error);
+        }
+    }
+    if (characterImageInputRef.current) {
+        characterImageInputRef.current.value = '';
+    }
+  };
+
+  const handleRemoveCharacterImage = (index: number) => {
+      setCharacterImages(prev => prev.filter((_, i) => i !== index));
+  };
+
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onComplete({
       technicalSheet,
       aspectRatio,
       resolution,
-      characterImage,
+      characterImages,
       styleImages: styleImage ? [styleImage] : [],
       audioFile,
       audioUrl,
@@ -414,13 +371,44 @@ const ProjectSetup: React.FC<ProjectSetupProps> = ({
             <h3 className="text-xl font-semibold text-white text-center">
               2. Character & Style (Optional)
             </h3>
-            <ImageUploader
-              label="Main Character"
-              description="Upload an image of the main character or subject for your video."
-              image={characterImage}
-              onSelect={setCharacterImage}
-              onRemove={() => setCharacterImage(null)}
-            />
+            <div className="bg-gray-800/50 p-6 rounded-xl border border-gray-700">
+                <h3 className="text-lg font-semibold text-white">Main Character</h3>
+                <p className="text-gray-400 text-sm mt-1">Upload up to 5 images of the main character for better likeness.</p>
+                <div className="mt-4 flex flex-wrap items-center gap-4">
+                    {characterImages.map((image, index) => (
+                        <div key={index} className="relative w-24 h-24 group flex-shrink-0">
+                            <img
+                                src={URL.createObjectURL(image.file)}
+                                alt={`character preview ${index + 1}`}
+                                className="w-full h-full object-cover rounded-lg"
+                            />
+                            <button
+                                type="button"
+                                onClick={() => handleRemoveCharacterImage(index)}
+                                className="absolute top-1 right-1 w-6 h-6 bg-black/60 hover:bg-black/80 rounded-full flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                                aria-label="Remove image">
+                                <XMarkIcon className="w-4 h-4" />
+                            </button>
+                        </div>
+                    ))}
+                    {characterImages.length < 5 && (
+                        <button
+                            type="button"
+                            onClick={() => characterImageInputRef.current?.click()}
+                            className="w-24 h-24 bg-gray-700/50 hover:bg-gray-700 border-2 border-dashed border-gray-600 rounded-lg flex flex-col items-center justify-center text-gray-400 hover:text-white transition-colors flex-shrink-0">
+                            <UploadIcon className="w-8 h-8" />
+                            <span className="text-xs mt-2">Upload ({characterImages.length}/5)</span>
+                            <input
+                                type="file"
+                                ref={characterImageInputRef}
+                                onChange={handleCharacterImageUpload}
+                                accept="image/*"
+                                className="hidden"
+                            />
+                        </button>
+                    )}
+                </div>
+            </div>
             <StyleUploader
               label="Style Reference"
               description="Upload an image or short video to influence the video's artistic style, colors, and lighting."

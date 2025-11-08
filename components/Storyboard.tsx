@@ -12,6 +12,37 @@ import {
 import SceneCard from './SceneCard';
 import VisualTimeline from './VisualTimeline';
 
+const parseTime = (timeStr: string): number => {
+  const parts = timeStr.split(':').map(Number);
+  if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+    return parts[0] * 60 + parts[1];
+  }
+  return 0;
+};
+
+// This regex is designed to be flexible and capture various time formats
+// e.g., (0:00 - 0:35), (0:00 – 0:35), 0:35 – 1:05, Duração: 0:30
+const timeRegex = /(?:(\d{1,2}:\d{2})\s*(?:-|–)\s*(\d{1,2}:\d{2}))|(?:Duração sugerida|Duração|Duration):\s*(\d{1,2}:\d{2})/i;
+
+
+const parsePromptForTime = (prompt: string, previousSceneEnd: number): { timestamp: number, intendedDuration?: number } => {
+    const match = prompt.match(timeRegex);
+    if (match) {
+        if (match[1] && match[2]) { // Format: 0:00 - 0:35
+            const start = parseTime(match[1]);
+            const end = parseTime(match[2]);
+            if (end > start) {
+                return { timestamp: start, intendedDuration: end - start };
+            }
+        } else if (match[3]) { // Format: Duração: 0:30
+            const duration = parseTime(match[3]);
+            return { timestamp: previousSceneEnd, intendedDuration: duration };
+        }
+    }
+    // Default: start at the end of the last scene
+    return { timestamp: previousSceneEnd };
+};
+
 
 interface StoryboardProps {
   scenes: Scene[];
@@ -36,10 +67,13 @@ const Storyboard: React.FC<StoryboardProps> = ({
   const [duration, setDuration] = useState(0);
 
   const addScene = () => {
+    const lastScene = scenes[scenes.length - 1];
+    const previousSceneEnd = lastScene ? (lastScene.timestamp + (lastScene.intendedDuration ?? lastScene.duration ?? 0)) : 0;
+    
     const newScene: Scene = {
       id: Date.now().toString(),
       prompt: '',
-      timestamp: audioRef.current?.currentTime ?? 0,
+      timestamp: previousSceneEnd,
       status: SceneStatus.DRAFT,
     };
     const newScenes = [...scenes, newScene].sort((a, b) => a.timestamp - b.timestamp);
@@ -48,10 +82,20 @@ const Storyboard: React.FC<StoryboardProps> = ({
   
   const updateScene = (id: string, updates: Partial<Scene>) => {
     setScenes(prev => {
-        const updatedScenes = prev.map(s => s.id === id ? {...s, ...updates} : s);
-        if ('timestamp' in updates) {
-          updatedScenes.sort((a,b) => a.timestamp - b.timestamp);
-        }
+        let lastSceneEnd = 0;
+        const updatedScenes = prev.map((s, index) => {
+          const prevScene = index > 0 ? prev[index - 1] : null;
+          lastSceneEnd = prevScene ? (prevScene.timestamp + (prevScene.intendedDuration ?? prevScene.duration ?? 0)) : 0;
+
+          if (s.id === id) {
+            const newPrompt = updates.prompt ?? s.prompt;
+            const timeInfo = parsePromptForTime(newPrompt, lastSceneEnd);
+            return {...s, ...updates, ...timeInfo};
+          }
+          return s;
+        });
+        
+        updatedScenes.sort((a,b) => a.timestamp - b.timestamp);
         return updatedScenes;
     });
   };
@@ -80,8 +124,9 @@ const Storyboard: React.FC<StoryboardProps> = ({
   }
 
   const activeScene = scenes.find(s => {
-    if (s.duration === undefined) return false;
-    return currentTime >= s.timestamp && currentTime < s.timestamp + s.duration;
+    const sceneDuration = s.intendedDuration ?? s.duration;
+    if (sceneDuration === undefined) return false;
+    return currentTime >= s.timestamp && currentTime < s.timestamp + sceneDuration;
   });
 
   const approvedScenesCount = scenes.filter(s => s.status === SceneStatus.APPROVED).length;

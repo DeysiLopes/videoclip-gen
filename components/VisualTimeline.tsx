@@ -69,10 +69,12 @@ const VisualTimeline: React.FC<VisualTimelineProps> = ({
       >
         {/* Scene blocks */}
         {scenes.map((scene, index) => {
-          if (scene.duration === undefined) return null;
+          // Use intendedDuration for visualization, fallback to actual duration
+          const displayDuration = scene.intendedDuration ?? scene.duration;
+          if (displayDuration === undefined) return null;
 
           const left = (scene.timestamp / totalDuration) * 100;
-          const width = (scene.duration / totalDuration) * 100;
+          const width = (displayDuration / totalDuration) * 100;
           
           const isActive = scene.id === activeSceneId;
 
@@ -81,6 +83,7 @@ const VisualTimeline: React.FC<VisualTimelineProps> = ({
               key={scene.id}
               className={`absolute h-full rounded-md transition-all duration-150 ease-in-out ${statusColors[scene.status]} ${isActive ? 'ring-2 ring-white ring-offset-2 ring-offset-gray-800' : 'opacity-70'}`}
               style={{ left: `${left}%`, width: `${width}%` }}
+              title={`Scene ${index + 1}: ${formatSeconds(scene.timestamp)} - ${formatSeconds(scene.timestamp + displayDuration)}`}
             >
               <div className="absolute -top-6 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-xs px-2 py-0.5 rounded-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
                 Scene {index + 1}

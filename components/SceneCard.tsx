@@ -23,14 +23,6 @@ const formatSeconds = (totalSeconds: number): string => {
   )}`;
 };
 
-const parseMMSS = (value: string): number => {
-  const parts = value.split(':').map(Number);
-  if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
-    return parts[0] * 60 + parts[1];
-  }
-  return 0;
-};
-
 interface SceneCardProps {
   scene: Scene;
   sceneNumber: number;
@@ -54,7 +46,6 @@ const SceneCard: React.FC<SceneCardProps> = ({
 }) => {
   const [isEditing, setIsEditing] = useState(scene.status === SceneStatus.DRAFT);
   const [prompt, setPrompt] = useState(scene.prompt);
-  const [timestampStr, setTimestampStr] = useState(formatSeconds(scene.timestamp));
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
 
@@ -69,13 +60,14 @@ const SceneCard: React.FC<SceneCardProps> = ({
 
    useEffect(() => {
     const video = videoRef.current;
-    if (!video) return;
+    if (!video || !scene.duration) return;
     
     if (isActive && isPlaying) {
-      const relativeTime = masterCurrentTime - scene.timestamp;
+      // This is the core logic for synchronized looping
+      const relativeTime = (masterCurrentTime - scene.timestamp) % scene.duration;
       
-      // Seek only if the difference is significant to prevent stuttering
-      if (Math.abs(video.currentTime - relativeTime) > 0.3) {
+      // Seek only if the difference is significant to prevent stuttering from minor updates
+      if (Math.abs(video.currentTime - relativeTime) > 0.2) {
         video.currentTime = relativeTime;
       }
       if (video.paused) {
@@ -86,12 +78,11 @@ const SceneCard: React.FC<SceneCardProps> = ({
         video.pause();
       }
     }
-  }, [isActive, isPlaying, masterCurrentTime, scene.timestamp]);
+  }, [isActive, isPlaying, masterCurrentTime, scene.timestamp, scene.duration]);
 
   const handleSave = () => {
     onUpdate(scene.id, {
       prompt: prompt,
-      timestamp: parseMMSS(timestampStr),
     });
     setIsEditing(false);
   };
@@ -104,18 +95,16 @@ const SceneCard: React.FC<SceneCardProps> = ({
     onUpdate(scene.id, { status: SceneStatus.GENERATED });
   }
 
+  const durationLabel = scene.intendedDuration ? ` / ${formatSeconds(scene.intendedDuration)}` : '';
+
   return (
     <div className={`bg-gray-800/60 rounded-xl border ${isApproved ? 'border-green-500/50' : 'border-gray-700'} shadow-lg transition-all`}>
       <div className="p-4">
         <div className="flex justify-between items-center mb-3">
           <h3 className="text-lg font-bold text-white">Scene {sceneNumber}</h3>
-          <div className="flex items-center gap-2 bg-gray-900/50 border border-gray-700 rounded-md px-2 py-1">
+          <div className="flex items-center gap-2 bg-gray-900/50 border border-gray-700 rounded-md px-2 py-1" title={`Starts at ${formatSeconds(scene.timestamp)}`}>
             <ClockIcon className="w-4 h-4 text-gray-400" />
-            {isEditing ? (
-              <input type="text" value={timestampStr} onChange={e => setTimestampStr(e.target.value)} className="w-16 bg-transparent text-center font-mono text-sm focus:outline-none" />
-            ) : (
-               <span className="font-mono text-sm text-gray-300">{formatSeconds(scene.timestamp)}</span>
-            )}
+            <span className="font-mono text-sm text-gray-300">{formatSeconds(scene.timestamp)}</span>
           </div>
         </div>
          {isEditing ? (
@@ -123,26 +112,31 @@ const SceneCard: React.FC<SceneCardProps> = ({
             ref={textareaRef}
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
-            placeholder="Describe this scene..."
+            placeholder="Describe this scene... e.g., 'CENA 1 (0:00 – 0:35) - A singer appears...'"
             className="w-full bg-gray-700/50 p-2 rounded-md resize-none text-gray-200 placeholder-gray-500"
-            rows={2}
+            rows={3}
           />
         ) : (
-          <p className="text-gray-300 min-h-[40px]">{scene.prompt}</p>
+          <p className="text-gray-300 min-h-[40px] text-sm line-clamp-3">{scene.prompt}</p>
         )}
       </div>
 
       <div className="bg-black/30 aspect-video flex items-center justify-center overflow-hidden relative">
         {scene.status === SceneStatus.GENERATING && <LoadingIndicator />}
         {scene.videoUrl && (
-          <video 
-            ref={videoRef}
-            src={scene.videoUrl} 
-            muted 
-            loop 
-            playsInline 
-            className="w-full h-full object-cover" 
-          />
+          <>
+            <video 
+              ref={videoRef}
+              src={scene.videoUrl} 
+              muted 
+              loop 
+              playsInline 
+              className="w-full h-full object-cover" 
+            />
+            <div className="absolute bottom-2 left-2 bg-black/60 text-white text-xs px-2 py-0.5 rounded font-mono">
+              {formatSeconds(scene.duration ?? 0)}{durationLabel}
+            </div>
+          </>
         )}
         {scene.status === SceneStatus.ERROR && (
            <div className="p-4 text-center">

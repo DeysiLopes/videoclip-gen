@@ -54,7 +54,7 @@ export interface ProjectConfig {
   technicalSheet: string;
   aspectRatio: AspectRatio;
   resolution: Resolution;
-  characterImage: ImageFile | null;
+  characterImages: ImageFile[];
   styleImages: ImageFile[];
   audioFile: File | null;
   audioUrl: string | null;
@@ -71,7 +71,8 @@ export enum SceneStatus {
 export interface Scene {
   id: string;
   timestamp: number; // in seconds
-  duration?: number; // in seconds
+  duration?: number; // actual generated video duration
+  intendedDuration?: number; // duration specified in prompt
   prompt: string;
   status: SceneStatus;
   videoUrl?: string;
