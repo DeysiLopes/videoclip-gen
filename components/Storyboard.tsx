@@ -52,7 +52,6 @@ const Storyboard: React.FC<StoryboardProps> = ({
 
        // Intelligent Scene Looping
        if (isPlaying && activeScene) {
-         // FIX: Corrected `active` to `activeScene`
          const sceneEndTime = activeScene.timestamp + (activeScene.intendedDuration ?? activeScene.duration ?? 0);
          if (newTime >= sceneEndTime || newTime < activeScene.timestamp) {
            audioRef.current.currentTime = activeScene.timestamp;
@@ -74,7 +73,6 @@ const Storyboard: React.FC<StoryboardProps> = ({
     }
   }
 
-  const scenesForFinalCutCount = scenes.filter(s => s.status === SceneStatus.APPROVED || s.status === SceneStatus.GENERATED).length;
   const approvedScenesCount = scenes.filter(s => s.status === SceneStatus.APPROVED).length;
 
   return (
@@ -145,14 +143,14 @@ const Storyboard: React.FC<StoryboardProps> = ({
         <div className="text-right">
           <button
             onClick={onComplete}
-            disabled={scenesForFinalCutCount === 0}
+            disabled={scenes.length === 0}
             className="px-8 py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg transition-colors text-lg inline-flex items-center justify-center gap-2 disabled:bg-gray-600 disabled:cursor-not-allowed">
             Proceed to Final Cut ({approvedScenesCount})
             <ArrowRightIcon className="w-5 h-5" />
           </button>
-          {scenesForFinalCutCount === 0 && (
+          {scenes.length === 0 && (
             <p className="text-xs text-gray-500 mt-1">
-              Generate at least one scene to continue.
+              Add at least one scene to continue.
             </p>
           )}
         </div>
