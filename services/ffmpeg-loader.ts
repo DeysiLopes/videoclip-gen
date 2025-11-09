@@ -37,8 +37,7 @@ export async function getFFmpeg(): Promise<FFmpeg> {
 
   const coreURL   = so(`${dir}/ffmpeg-core.js`);
   const wasmURL   = so(`${dir}/ffmpeg-core.wasm`);
-  // Worker may not exist for some ST builds, handle gracefully
-  const workerURL = mt ? so(`${dir}/ffmpeg-core.worker.js`) : so(`${dir}/ffmpeg-core.worker.js`);
+  const workerURL = so(`${dir}/ffmpeg-core.worker.js`);
 
   [coreURL, wasmURL, workerURL].forEach(assertSameOrigin);
 

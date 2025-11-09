@@ -19,7 +19,7 @@ const FinalCut: React.FC<FinalCutProps> = ({
   projectConfig,
   onBack,
 }) => {
-  const {audioUrl, audioFile} = projectConfig;
+  const {audioUrl} = projectConfig;
   const scenesToShow = scenes.filter(
     (s) => s.status === SceneStatus.APPROVED || s.status === SceneStatus.GENERATED,
   );
@@ -61,12 +61,10 @@ const FinalCut: React.FC<FinalCutProps> = ({
     const sceneActualDuration = activeScene.duration ?? 1;
     const relativeTime = (currentTime - sceneStartTime) % sceneActualDuration;
 
-    // Fix: Property 'currentTime' does not exist on type 'HTMLVideoElement'.
     if (Math.abs((video as any).currentTime - relativeTime) > 0.2) {
       (video as any).currentTime = relativeTime;
     }
 
-    // Fix: Property 'paused', 'play' do not exist on type 'HTMLVideoElement'.
     if (isPlaying && (video as any).paused) {
       (video as any).play().catch((e: Error) => console.error('FinalCut video play failed:', e));
     } else if (!isPlaying && !(video as any).paused) {
@@ -100,12 +98,14 @@ const FinalCut: React.FC<FinalCutProps> = ({
         }
       });
       
-      console.log('[FFmpeg Debug] Writing input files...');
+      // Write input files
       for (let i = 0; i < sortedScenes.length; i++) {
         const scene = sortedScenes[i];
         if (scene.videoBlob) {
           const buf = new Uint8Array(await scene.videoBlob.arrayBuffer());
           await ffmpeg.writeFile(`in${i}.mp4`, buf);
+        } else {
+            throw new Error(`Scene ${i+1} is missing video data.`);
         }
       }
       if (projectConfig.audioFile) {
@@ -115,49 +115,47 @@ const FinalCut: React.FC<FinalCutProps> = ({
         throw new Error("Music track is missing.");
       }
 
-      console.log('[FFmpeg Debug] Constructing FFmpeg command...');
-      
+      // Construct FFmpeg command
       const { width, height } = {
           '1080p': { width: 1920, height: 1080 },
           '720p': { width: 1280, height: 720 },
       }[projectConfig.resolution];
-
       const [outputWidth, outputHeight] = projectConfig.aspectRatio === AspectRatio.LANDSCAPE ? [width, height] : [height, width];
       
       const vf: string[] = [], af: string[] = [], vparts: string[] = [], aparts: string[] = [];
       sortedScenes.forEach((c, i) => {
-        const intendedDuration = c.intendedDuration ?? c.duration ?? 1;
-        // Use tloop to handle clips shorter than intended duration
-        vf.push(`[${i}:v]tloop=-1,trim=duration=${intendedDuration},setpts=PTS-STARTPTS,scale=${outputWidth}:${outputHeight}:force_original_aspect_ratio=decrease,pad=${outputWidth}:${outputHeight}:(ow-iw)/2:(oh-ih)/2,format=yuv420p[v${i}]`);
-        vparts.push(`[v${i}]`);
+        const tin = 0;
+        const tout = c.intendedDuration ?? c.duration ?? 1;
+        vf.push(`[${i}:v]trim=${tin}:${tout},setpts=PTS-STARTPTS,scale=${outputWidth}:${outputHeight}:force_original_aspect_ratio=decrease,pad=${outputWidth}:${outputHeight}:(ow-iw)/2:(oh-ih)/2,format=yuv420p[v${i}]`);
+        af.push(`[${i}:a]atrim=${tin}:${tout},asetpts=PTS-STARTPTS[a${i}]`);
+        vparts.push(`[v${i}]`); 
+        aparts.push(`[a${i}]`);
       });
 
       const n = sortedScenes.length;
-      const concatFilter = `${vparts.join('')}concat=n=${n}:v=1:a=0[vcat]`;
-      const baseFilters = `${vf.join(';')};${concatFilter}`;
-      
-      // Fix: Property 'music' does not exist on type 'ProjectConfig'. Changed to 'audioFile'.
+      const base = `${vparts.join('')}${aparts.join('')}concat=n=${n}:v=1:a=1[vcat][acat]`;
       const fc = projectConfig.audioFile
-        ? `${baseFilters};[vcat]copy[vout];amovie=music.mp3,asetpts=PTS-STARTPTS[bgm];[bgm]atrim=0:3600[bgm1]`
-        : baseFilters;
+        ? [
+            ...vf, ...af, base,
+            `[vcat]copy[vout];amovie=music.mp3,asetpts=PTS-STARTPTS[bgm];[bgm]atrim=0:3600[bgm1]`
+          ].join(';')
+        : [...vf, ...af, base].join(';');
 
       const args: string[] = [];
       for (let i = 0; i < n; i++) args.push('-i', `in${i}.mp4`);
       args.push(
         '-filter_complex', fc,
-        '-map', '[vout]',
-        '-map', '[bgm1]',
-        '-r', '24', // Standard frame rate
+        '-map', projectConfig.audioFile ? '[vout]' : '[vcat]',
+        '-map', projectConfig.audioFile ? '[bgm1]' : '[acat]',
+        '-r', '24',
         '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-preset', 'veryfast', '-crf', '23',
         '-c:a', 'aac', '-b:a', '192k',
         '-shortest', '-movflags', '+faststart',
         '-y', 'out.mp4'
       );
-
+      
       setPhase('rendering');
-      console.log('[FFmpeg Debug] Executing command:', args.join(' '));
       await ffmpeg.exec(args);
-      console.log('[FFmpeg Debug] FFmpeg command execution finished.');
 
       const data = await ffmpeg.readFile('out.mp4');
       const blob = new Blob([data], { type: 'video/mp4' });
@@ -185,10 +183,7 @@ const FinalCut: React.FC<FinalCutProps> = ({
     if (audioRef.current) {
       const lastScene = sortedScenes[sortedScenes.length - 1];
       if (!lastScene) return;
-
       const lastSceneEndTime = lastScene.timestamp + (lastScene.intendedDuration ?? lastScene.duration ?? 0);
-
-      // Fix: Property 'currentTime', 'pause' do not exist on type 'HTMLAudioElement'.
       if ((audioRef.current as any).currentTime >= lastSceneEndTime) {
         (audioRef.current as any).pause();
         setIsPlaying(false);
@@ -196,7 +191,6 @@ const FinalCut: React.FC<FinalCutProps> = ({
         (audioRef.current as any).currentTime = firstSceneTimestamp;
         setCurrentTime(firstSceneTimestamp);
       } else {
-        // Fix: Property 'currentTime' do not exist on type 'HTMLAudioElement'.
         setCurrentTime((audioRef.current as any).currentTime);
       }
     }
@@ -204,7 +198,6 @@ const FinalCut: React.FC<FinalCutProps> = ({
 
   const handleLoadedMetadata = useCallback(() => {
     if (audioRef.current) {
-      // Fix: Property 'duration', 'currentTime' do not exist on type 'HTMLAudioElement'.
       setDuration((audioRef.current as any).duration);
       const firstSceneTimestamp = sortedScenes[0]?.timestamp ?? 0;
       (audioRef.current as any).currentTime = firstSceneTimestamp;
