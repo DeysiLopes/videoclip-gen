@@ -80,6 +80,7 @@ export interface Scene {
   videoObject?: Video;
   errorMessage?: string;
   errorType?: 'QUOTA_EXCEEDED';
+  isUploaded?: boolean;
 }
 
 export interface VeoApiParams {

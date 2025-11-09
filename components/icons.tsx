@@ -5,6 +5,7 @@
 import React from 'react';
 import {
   ArrowDown,
+  ArrowDownToLine,
   ArrowLeft,
   ArrowRight,
   Baseline,
@@ -124,6 +125,10 @@ export const UploadIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
 export const LoopIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
   <Repeat {...defaultProps} {...props} />
 );
+
+export const DownloadIcon: React.FC<React.SVGProps<SVGSVGElement>> = (
+  props,
+) => <ArrowDownToLine {...defaultProps} {...props} />;
 
 
 // This icon had a different stroke width in the original file, so we preserve it.

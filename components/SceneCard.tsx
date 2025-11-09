@@ -9,10 +9,13 @@ import {
   ArrowPathIcon,
   ClockIcon,
   DeleteIcon,
+  DownloadIcon,
   EditIcon,
   LoopIcon,
+  UploadIcon,
 } from './icons';
 import LoadingIndicator from './LoadingIndicator';
+import {getVideoDuration} from '../services/utils';
 
 const formatSeconds = (totalSeconds: number): string => {
   if (isNaN(totalSeconds) || totalSeconds < 0) return '00:00';
@@ -49,6 +52,7 @@ const SceneCard: React.FC<SceneCardProps> = ({
   const [prompt, setPrompt] = useState(scene.prompt);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const uploadInputRef = useRef<HTMLInputElement>(null);
 
   const isApproved = scene.status === SceneStatus.APPROVED;
 
@@ -96,6 +100,54 @@ const SceneCard: React.FC<SceneCardProps> = ({
     onUpdate(scene.id, { status: SceneStatus.GENERATED });
   }
 
+  const handleDownload = () => {
+    if (!scene.videoUrl || !scene.videoBlob) return;
+    const a = document.createElement('a');
+    a.href = scene.videoUrl;
+    a.download = `DreamDirector_Scene_${sceneNumber}.mp4`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  };
+
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    onUpdate(scene.id, {status: SceneStatus.GENERATING}); // Show a loading state
+
+    try {
+      const videoBlob = new Blob([file], {type: file.type});
+      const objectUrl = URL.createObjectURL(videoBlob);
+      const duration = await getVideoDuration(objectUrl);
+
+      onUpdate(scene.id, {
+        status: SceneStatus.GENERATED,
+        videoUrl: objectUrl,
+        videoBlob: videoBlob,
+        duration: duration,
+        errorMessage: undefined,
+        errorType: undefined,
+        isUploaded: true,
+        videoObject: undefined, // ensure no stale videoObject
+      });
+      setIsEditing(false); // Exit editing mode on successful upload
+    } catch (error) {
+      console.error('Video upload failed:', error);
+      onUpdate(scene.id, {
+        status: SceneStatus.ERROR,
+        errorMessage:
+          error instanceof Error
+            ? error.message
+            : 'Failed to process uploaded video.',
+      });
+    }
+
+    if (uploadInputRef.current) {
+      uploadInputRef.current.value = '';
+    }
+  };
+
   const durationLabel = scene.intendedDuration ? ` / ${formatSeconds(scene.intendedDuration)}` : '';
   const isLooping = scene.intendedDuration && scene.duration && scene.intendedDuration > scene.duration + 0.1;
 
@@ -140,6 +192,12 @@ const SceneCard: React.FC<SceneCardProps> = ({
                 {formatSeconds(scene.duration ?? 0)}{durationLabel}
                 {isLooping && <LoopIcon className="w-3 h-3" title="This clip is looped to fill the intended duration" />}
               </div>
+              <button
+                onClick={handleDownload}
+                className="absolute bottom-2 right-2 bg-black/60 text-white p-1.5 rounded-full hover:bg-black/80 transition-colors"
+                title="Download video">
+                <DownloadIcon className="w-4 h-4" />
+              </button>
             </>
           )}
           {scene.status === SceneStatus.ERROR && (
@@ -192,7 +250,22 @@ const SceneCard: React.FC<SceneCardProps> = ({
                 <button onClick={handleUnapprove} className="px-4 py-1.5 bg-yellow-600 rounded-md text-sm font-semibold hover:bg-yellow-700">Un-approve</button>
              )}
             {scene.status === SceneStatus.DRAFT && (
-              <button onClick={() => onGenerate(scene.id)} className="px-4 py-1.5 bg-indigo-600 rounded-md text-sm font-semibold hover:bg-indigo-700">Generate</button>
+               <div className="flex items-center gap-2">
+                 <input
+                  type="file"
+                  ref={uploadInputRef}
+                  onChange={handleUpload}
+                  className="hidden"
+                  accept="video/*"
+                />
+                 <button
+                    onClick={() => uploadInputRef.current?.click()}
+                    className="px-4 py-1.5 bg-gray-600 rounded-md text-sm font-semibold hover:bg-gray-700 flex items-center gap-2">
+                    <UploadIcon className="w-4 h-4"/>
+                    Upload
+                 </button>
+                 <button onClick={() => onGenerate(scene.id)} className="px-4 py-1.5 bg-indigo-600 rounded-md text-sm font-semibold hover:bg-indigo-700">Generate</button>
+              </div>
             )}
           </div>
         )}

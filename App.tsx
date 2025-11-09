@@ -11,6 +11,7 @@ import ProjectSetup from './components/ProjectSetup';
 import Storyboard from './components/Storyboard';
 import {dbService} from './services/dbService';
 import {generateVideo} from './services/geminiService';
+import {getVideoDuration} from './services/utils';
 import {
   AppMode,
   AspectRatio,
@@ -21,25 +22,6 @@ import {
   VeoApiParams,
   VeoModel,
 } from './types';
-
-const getVideoDuration = (url: string): Promise<number> => {
-  return new Promise((resolve, reject) => {
-    const video = document.createElement('video');
-    video.preload = 'metadata';
-    video.onloadedmetadata = () => {
-      resolve(video.duration);
-    };
-    video.onerror = (e) => {
-      const errorEvent = e as ErrorEvent;
-      reject(
-        new Error(
-          `Error loading video for duration check: ${errorEvent.message}`,
-        ),
-      );
-    };
-    video.src = url;
-  });
-};
 
 const Stepper: React.FC<{currentMode: AppMode}> = ({currentMode}) => {
   const steps = [AppMode.SETUP, AppMode.STORYBOARD, AppMode.FINAL_CUT];
@@ -380,7 +362,8 @@ const App: React.FC = () => {
           const prevScene = sortedScenes[i];
           if (
             prevScene.videoObject &&
-            prevScene.status === SceneStatus.APPROVED
+            prevScene.status === SceneStatus.APPROVED &&
+            !prevScene.isUploaded
           ) {
             previousVideo = prevScene.videoObject;
             break;
