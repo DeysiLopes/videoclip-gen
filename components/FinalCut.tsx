@@ -98,63 +98,65 @@ const FinalCut: React.FC<FinalCutProps> = ({
         }
       });
       
-      // Write input files
+      // 1. Write all media files to FFmpeg's virtual file system
+      let fileListContent = '';
       for (let i = 0; i < sortedScenes.length; i++) {
         const scene = sortedScenes[i];
         if (scene.videoBlob) {
+          const fileName = `in${i}.mp4`;
           const buf = new Uint8Array(await scene.videoBlob.arrayBuffer());
-          await ffmpeg.writeFile(`in${i}.mp4`, buf);
+          await ffmpeg.writeFile(fileName, buf);
+          fileListContent += `file '${fileName}'\n`;
         } else {
-            throw new Error(`Scene ${i+1} is missing video data.`);
+          throw new Error(`Scene ${i + 1} is missing video data.`);
         }
       }
-      if (projectConfig.audioFile) {
+      
+      const hasAudio = !!projectConfig.audioFile;
+      if (hasAudio) {
         const mbuf = new Uint8Array(await projectConfig.audioFile.arrayBuffer());
         await ffmpeg.writeFile('music.mp3', mbuf);
-      } else {
-        throw new Error("Music track is missing.");
       }
 
-      // Construct FFmpeg command
-      const { width, height } = {
-          '1080p': { width: 1920, height: 1080 },
-          '720p': { width: 1280, height: 720 },
-      }[projectConfig.resolution];
-      const [outputWidth, outputHeight] = projectConfig.aspectRatio === AspectRatio.LANDSCAPE ? [width, height] : [height, width];
-      
-      const vf: string[] = [], af: string[] = [], vparts: string[] = [], aparts: string[] = [];
-      sortedScenes.forEach((c, i) => {
-        const tin = 0;
-        const tout = c.intendedDuration ?? c.duration ?? 1;
-        vf.push(`[${i}:v]trim=${tin}:${tout},setpts=PTS-STARTPTS,scale=${outputWidth}:${outputHeight}:force_original_aspect_ratio=decrease,pad=${outputWidth}:${outputHeight}:(ow-iw)/2:(oh-ih)/2,format=yuv420p[v${i}]`);
-        af.push(`[${i}:a]atrim=${tin}:${tout},asetpts=PTS-STARTPTS[a${i}]`);
-        vparts.push(`[v${i}]`); 
-        aparts.push(`[a${i}]`);
-      });
-
-      const n = sortedScenes.length;
-      const base = `${vparts.join('')}${aparts.join('')}concat=n=${n}:v=1:a=1[vcat][acat]`;
-      const fc = projectConfig.audioFile
-        ? [
-            ...vf, ...af, base,
-            `[vcat]copy[vout];amovie=music.mp3,asetpts=PTS-STARTPTS[bgm];[bgm]atrim=0:3600[bgm1]`
-          ].join(';')
-        : [...vf, ...af, base].join(';');
-
+      // 2. Build the FFmpeg command args using the robust `concat` demuxer
       const args: string[] = [];
-      for (let i = 0; i < n; i++) args.push('-i', `in${i}.mp4`);
-      args.push(
-        '-filter_complex', fc,
-        '-map', projectConfig.audioFile ? '[vout]' : '[vcat]',
-        '-map', projectConfig.audioFile ? '[bgm1]' : '[acat]',
-        '-r', '24',
-        '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-preset', 'veryfast', '-crf', '23',
-        '-c:a', 'aac', '-b:a', '192k',
-        '-shortest', '-movflags', '+faststart',
-        '-y', 'out.mp4'
-      );
+
+      // Use concat demuxer for multiple videos, or a single input for one video.
+      if (sortedScenes.length > 1) {
+        await ffmpeg.writeFile('mylist.txt', fileListContent);
+        args.push('-f', 'concat', '-safe', '0', '-i', 'mylist.txt');
+      } else if (sortedScenes.length === 1) {
+        args.push('-i', 'in0.mp4');
+      } else {
+        throw new Error("No scenes to render.");
+      }
+
+      if (hasAudio) {
+        args.push('-i', 'music.mp3');
+      }
+      
+      // 3. Map streams correctly
+      // Map video stream from the first input (which is either the concat output or the single video)
+      args.push('-map', '0:v:0');
+      if (hasAudio) {
+        // Map audio stream from the second input (music.mp3)
+        args.push('-map', '1:a:0');
+      }
+      
+      // 4. Set encoding options
+      // Copy video codec if possible, otherwise re-encode. For simplicity and robustness, we re-encode.
+      args.push('-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-preset', 'veryfast', '-crf', '23', '-r', '24');
+
+      if (hasAudio) {
+        args.push('-c:a', 'aac', '-b:a', '192k');
+        // End encoding when the shorter of audio/video finishes. This is key for syncing.
+        args.push('-shortest'); 
+      }
+
+      args.push('-movflags', '+faststart', '-y', 'out.mp4');
       
       setPhase('rendering');
+      console.log('Executing FFmpeg with simple concat args:', args);
       await ffmpeg.exec(args);
 
       const data = await ffmpeg.readFile('out.mp4');
@@ -168,6 +170,7 @@ const FinalCut: React.FC<FinalCutProps> = ({
       setPhase('error');
     }
   };
+
 
   const handleDownload = () => {
     if (!url) return;

@@ -3,58 +3,34 @@
  * SPDX-License-Identifier: Apache-2.0
 */
 import { FFmpeg } from '@ffmpeg/ffmpeg';
+import { toBlobURL } from '@ffmpeg/util';
 
-let cached: FFmpeg | null = null;
+let ffmpegSingleton: FFmpeg | null = null;
 
-function so(path: string) {
-  const b = (import.meta as any).env?.BASE_URL ?? '/';
-  const root = b.endsWith('/') ? b.slice(0, -1) : b;
-  return root + path;
-}
+export async function getFFmpeg() {
+  if (ffmpegSingleton) return ffmpegSingleton;
 
-function assertSameOrigin(u?: string) {
-  if (!u) return;
-  if (u.startsWith('blob:')) throw new Error('NÃO use Blob URL para o core do FFmpeg.');
-  if (/unpkg|jsdelivr|aistudiocdn/i.test(u)) throw new Error('NÃO use CDN para o core do FFmpeg.');
-  if (/^https?:\/\//.test(u) && !u.includes(location.host)) {
-    throw new Error('Core do FFmpeg deve ser same-origin.');
-  }
-}
+  const base = ((import.meta as any).env?.BASE_URL?.replace(/\/$/, '') || '') + '/ffmpeg/st';
 
-export async function getFFmpeg(): Promise<FFmpeg> {
-  if (cached) return cached;
-  
-  console.log('[FFmpeg Debug] Initializing FFmpeg instance...');
-
-  const mt = (typeof crossOriginIsolated !== 'undefined') && crossOriginIsolated === true;
-  console.log(
-    `[FFmpeg Debug] Cross-origin isolation: ${mt}. Will use ${
-      mt ? 'Multi-threaded' : 'Single-threaded'
-    } core.`,
-  );
-  
-  const dir = mt ? '/ffmpeg/mt' : '/ffmpeg/st';
-
-  const coreURL   = so(`${dir}/ffmpeg-core.js`);
-  const wasmURL   = so(`${dir}/ffmpeg-core.wasm`);
-  const workerURL = so(`${dir}/ffmpeg-core.worker.js`);
-
-  [coreURL, wasmURL, workerURL].forEach(assertSameOrigin);
+  console.log('[FFmpeg Debug] Cross-origin isolation:',
+    (globalThis as any).crossOriginIsolated ? 'true' : 'false');
+  console.log('[FFmpeg Debug] Loading core from base:', base);
 
   const ffmpeg = new FFmpeg();
-  
-  console.log(`[FFmpeg Debug] Loading core from: ${coreURL}`);
 
-  // Tenta com worker; se 404 (comum em ST), tenta sem
   try {
-    await ffmpeg.load({ coreURL, wasmURL, workerURL });
+    await ffmpeg.load({
+      coreURL:   await toBlobURL(`${base}/ffmpeg-core.js?v=0.12.10`,        'text/javascript'),
+      wasmURL:   await toBlobURL(`${base}/ffmpeg-core.wasm?v=0.12.10`,      'application/wasm'),
+      workerURL: await toBlobURL(`${base}/ffmpeg-core.worker.js?v=0.12.10`, 'text/javascript'),
+    });
+    console.log('[FFmpeg Debug] FFmpeg core loaded successfully.');
   } catch (e) {
-    console.warn('[FFmpeg Debug] Loading with worker failed, trying without...', e);
-    await ffmpeg.load({ coreURL, wasmURL });
+    console.error('[FFmpeg Debug] FFmpeg core loading failed.', e);
+    ffmpegSingleton = null; // Reset on failure
+    throw e;
   }
   
-  console.log('[FFmpeg Debug] FFmpeg core loaded successfully.');
-
-  cached = ffmpeg;
+  ffmpegSingleton = ffmpeg;
   return ffmpeg;
 }
