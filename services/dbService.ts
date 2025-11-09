@@ -11,23 +11,33 @@ const CONFIG_STORE = 'projectConfig';
 const CONFIG_KEY = 'current';
 
 let db: IDBDatabase;
+let dbPromise: Promise<IDBDatabase> | null = null;
 
-const initDB = (): Promise<boolean> => {
-  return new Promise((resolve, reject) => {
-    if (db) {
-      return resolve(true);
-    }
+const getDB = (): Promise<IDBDatabase> => {
+  if (db) {
+    return Promise.resolve(db);
+  }
 
+  if (dbPromise) {
+    return dbPromise;
+  }
+
+  dbPromise = new Promise((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
 
-    request.onerror = (event) => {
+    request.onerror = () => {
       console.error('Database error:', request.error);
+      dbPromise = null;
       reject('Error opening database');
     };
 
-    request.onsuccess = (event) => {
+    request.onsuccess = () => {
       db = request.result;
-      resolve(true);
+      db.onclose = () => {
+        db = null;
+        dbPromise = null;
+      };
+      resolve(db);
     };
 
     request.onupgradeneeded = (event) => {
@@ -40,12 +50,15 @@ const initDB = (): Promise<boolean> => {
       }
     };
   });
+
+  return dbPromise;
 };
 
-const saveScene = (scene: Scene): Promise<void> => {
+
+const saveScene = async (scene: Scene): Promise<void> => {
+  const currentDb = await getDB();
   return new Promise((resolve, reject) => {
-    if (!db) return reject('DB not initialized');
-    const transaction = db.transaction([SCENES_STORE], 'readwrite');
+    const transaction = currentDb.transaction([SCENES_STORE], 'readwrite');
     const store = transaction.objectStore(SCENES_STORE);
     const request = store.put(scene);
     request.onsuccess = () => resolve();
@@ -53,10 +66,10 @@ const saveScene = (scene: Scene): Promise<void> => {
   });
 };
 
-const getScenes = (): Promise<Scene[]> => {
+const getScenes = async (): Promise<Scene[]> => {
+  const currentDb = await getDB();
   return new Promise((resolve, reject) => {
-    if (!db) return reject('DB not initialized');
-    const transaction = db.transaction([SCENES_STORE], 'readonly');
+    const transaction = currentDb.transaction([SCENES_STORE], 'readonly');
     const store = transaction.objectStore(SCENES_STORE);
     const request = store.getAll();
     request.onsuccess = () => resolve(request.result);
@@ -64,10 +77,10 @@ const getScenes = (): Promise<Scene[]> => {
   });
 };
 
-const deleteScene = (id: string): Promise<void> => {
+const deleteScene = async (id: string): Promise<void> => {
+    const currentDb = await getDB();
     return new Promise((resolve, reject) => {
-        if (!db) return reject('DB not initialized');
-        const transaction = db.transaction([SCENES_STORE], 'readwrite');
+        const transaction = currentDb.transaction([SCENES_STORE], 'readwrite');
         const store = transaction.objectStore(SCENES_STORE);
         const request = store.delete(id);
         request.onsuccess = () => resolve();
@@ -75,10 +88,10 @@ const deleteScene = (id: string): Promise<void> => {
     });
 };
 
-const clearScenes = (): Promise<void> => {
+const clearScenes = async (): Promise<void> => {
+    const currentDb = await getDB();
     return new Promise((resolve, reject) => {
-        if (!db) return reject('DB not initialized');
-        const transaction = db.transaction([SCENES_STORE], 'readwrite');
+        const transaction = currentDb.transaction([SCENES_STORE], 'readwrite');
         const store = transaction.objectStore(SCENES_STORE);
         const request = store.clear();
         request.onsuccess = () => resolve();
@@ -87,10 +100,10 @@ const clearScenes = (): Promise<void> => {
 };
 
 
-const saveProjectConfig = (config: ProjectConfig): Promise<void> => {
+const saveProjectConfig = async (config: ProjectConfig): Promise<void> => {
+    const currentDb = await getDB();
     return new Promise((resolve, reject) => {
-        if (!db) return reject('DB not initialized');
-        const transaction = db.transaction([CONFIG_STORE], 'readwrite');
+        const transaction = currentDb.transaction([CONFIG_STORE], 'readwrite');
         const store = transaction.objectStore(CONFIG_STORE);
         const configToStore = { ...config, audioUrl: null };
         const request = store.put(configToStore, CONFIG_KEY);
@@ -99,10 +112,10 @@ const saveProjectConfig = (config: ProjectConfig): Promise<void> => {
     });
 };
 
-const getProjectConfig = (): Promise<ProjectConfig | null> => {
+const getProjectConfig = async (): Promise<ProjectConfig | null> => {
+    const currentDb = await getDB();
     return new Promise((resolve, reject) => {
-        if (!db) return reject('DB not initialized');
-        const transaction = db.transaction([CONFIG_STORE], 'readonly');
+        const transaction = currentDb.transaction([CONFIG_STORE], 'readonly');
         const store = transaction.objectStore(CONFIG_STORE);
         const request = store.get(CONFIG_KEY);
         request.onsuccess = () => resolve(request.result || null);
@@ -112,7 +125,7 @@ const getProjectConfig = (): Promise<ProjectConfig | null> => {
 
 
 export const dbService = {
-  initDB,
+  getDB,
   saveScene,
   getScenes,
   deleteScene,

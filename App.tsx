@@ -168,7 +168,6 @@ const App: React.FC = () => {
       }
 
       // 2. Initialize DB and load data
-      await dbService.initDB();
       try {
         const loadedConfig = await dbService.getProjectConfig();
         if (loadedConfig && loadedConfig.technicalSheet) {

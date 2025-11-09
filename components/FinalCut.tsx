@@ -73,14 +73,14 @@ const FinalCut: React.FC<FinalCutProps> = ({ scenes, projectConfig, onBack }) =>
     setRenderMessage('Initializing Render Engine...');
     
     try {
-        const coreVersion = '0.12.10';
+        const ffmpegVersion = '0.12.10';
+        const coreVersion = '0.12.6'; // Compatible core version for ffmpeg 0.12.10
 
-        // URLs for all FFmpeg assets
-        const coreBaseURL = `https://cdn.jsdelivr.net/npm/@ffmpeg/core@${coreVersion}/dist/esm`;
-        const coreURL = `${coreBaseURL}/ffmpeg-core.js`;
-        const wasmURL = `${coreBaseURL}/ffmpeg-core.wasm`;
-        const coreWorkerURL = `${coreBaseURL}/ffmpeg-core.worker.js`;
-        
+        const baseURL = 'https://cdn.jsdelivr.net/npm/';
+        const coreURL = `${baseURL}@ffmpeg/core@${coreVersion}/dist/esm/ffmpeg-core.js`;
+        const wasmURL = `${baseURL}@ffmpeg/core@${coreVersion}/dist/esm/ffmpeg-core.wasm`;
+        const workerURL = `${baseURL}@ffmpeg/ffmpeg@${ffmpegVersion}/dist/esm/worker.js`;
+
         let ffmpeg = ffmpegRef.current;
         if (!ffmpeg) {
             ffmpeg = new FFmpeg();
@@ -93,12 +93,20 @@ const FinalCut: React.FC<FinalCutProps> = ({ scenes, projectConfig, onBack }) =>
             setRenderMessage(`Rendering... Frame time: ${time / 1000000}s`);
         });
         
-        if (!ffmpeg.isLoaded()) {
+        const compatibilityFFmpeg = ffmpeg as unknown as { loaded?: boolean; isLoaded?: () => boolean };
+        const hasLoaded =
+            typeof compatibilityFFmpeg.loaded === 'boolean'
+                ? compatibilityFFmpeg.loaded
+                : typeof compatibilityFFmpeg.isLoaded === 'function'
+                    ? compatibilityFFmpeg.isLoaded()
+                    : false;
+
+        if (!hasLoaded) {
             setRenderMessage('Loading FFmpeg core...');
             await ffmpeg.load({
                 coreURL: await toBlobURL(coreURL, 'text/javascript'),
                 wasmURL: await toBlobURL(wasmURL, 'application/wasm'),
-                workerURL: await toBlobURL(coreWorkerURL, 'text/javascript'),
+                workerURL: await toBlobURL(workerURL, 'text/javascript'),
             });
         }
 
@@ -136,7 +144,9 @@ const FinalCut: React.FC<FinalCutProps> = ({ scenes, projectConfig, onBack }) =>
             '-filter_complex', finalFilter,
             '-map', '[v]',
             '-map', `${sortedScenes.length}:a`,
+            '-c:v', 'libx264',
             '-preset', 'ultrafast',
+            '-shortest',
             'output.mp4'
         ];
         
