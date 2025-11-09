@@ -2,6 +2,9 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
 */
+// Fix: Add a triple-slash directive to include Vite client types, resolving the TypeScript error for `import.meta.env`.
+/// <reference types="vite/client" />
+
 import { FFmpeg } from '@ffmpeg/ffmpeg';
 import { toBlobURL } from '@ffmpeg/util';
 
@@ -10,27 +13,38 @@ let ffmpegSingleton: FFmpeg | null = null;
 export async function getFFmpeg() {
   if (ffmpegSingleton) return ffmpegSingleton;
 
-  const base = ((import.meta as any).env?.BASE_URL?.replace(/\/$/, '') || '') + '/ffmpeg/st';
+  console.log('[FFmpeg Debug] Initializing FFmpeg instance...');
 
-  console.log('[FFmpeg Debug] Cross-origin isolation:',
-    (globalThis as any).crossOriginIsolated ? 'true' : 'false');
+  const mt = (globalThis as any).crossOriginIsolated;
+  console.log(
+    `[FFmpeg Debug] Cross-origin isolation: ${mt}. Will use ${
+      mt ? 'Multi-threaded' : 'Single-threaded'
+    } core.`
+  );
+
+  const base =
+    (import.meta.env.BASE_URL?.replace(/\/$/, '') || '') + (mt ? '/ffmpeg/mt' : '/ffmpeg/st');
+    
   console.log('[FFmpeg Debug] Loading core from base:', base);
 
   const ffmpeg = new FFmpeg();
 
   try {
-    await ffmpeg.load({
-      coreURL:   await toBlobURL(`${base}/ffmpeg-core.js?v=0.12.10`,        'text/javascript'),
-      wasmURL:   await toBlobURL(`${base}/ffmpeg-core.wasm?v=0.12.10`,      'application/wasm'),
-      workerURL: await toBlobURL(`${base}/ffmpeg-core.worker.js?v=0.12.10`, 'text/javascript'),
-    });
+    const coreURL = await toBlobURL(`${base}/ffmpeg-core.js`, 'text/javascript');
+    const wasmURL = await toBlobURL(`${base}/ffmpeg-core.wasm`, 'application/wasm');
+    const workerURL = mt 
+      ? await toBlobURL(`${base}/ffmpeg-core.worker.js`, 'text/javascript')
+      : undefined;
+
+    await ffmpeg.load({ coreURL, wasmURL, workerURL });
+    
     console.log('[FFmpeg Debug] FFmpeg core loaded successfully.');
+    ffmpegSingleton = ffmpeg;
+    return ffmpeg;
+
   } catch (e) {
     console.error('[FFmpeg Debug] FFmpeg core loading failed.', e);
-    ffmpegSingleton = null; // Reset on failure
+    ffmpegSingleton = null;
     throw e;
   }
-  
-  ffmpegSingleton = ffmpeg;
-  return ffmpeg;
 }
