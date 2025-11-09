@@ -31,7 +31,7 @@ const FinalCut: React.FC<FinalCutProps> = ({ scenes, projectConfig, onBack }) =>
   const [isRendering, setIsRendering] = useState(false);
   const [renderProgress, setRenderProgress] = useState(0);
   const [renderMessage, setRenderMessage] = useState('');
-  const ffmpegRef = useRef(new FFmpeg());
+  const ffmpegRef = useRef<FFmpeg | null>(null);
 
   // Effect to find the active scene based on audio time
   useEffect(() => {
@@ -71,32 +71,39 @@ const FinalCut: React.FC<FinalCutProps> = ({ scenes, projectConfig, onBack }) =>
     setIsRendering(true);
     setRenderProgress(0);
     setRenderMessage('Initializing Render Engine...');
-
-    const ffmpeg = ffmpegRef.current;
     
     try {
-        // Updated FFmpeg asset URLs to use the es2022 build from aistudiocdn.com.
-        // This aligns with the version loaded by the import map, resolving a persistent CORS error
-        // by ensuring the main library, core, and worker are all loaded from a consistent source
-        // and use a compatible module format.
-        const coreBaseURL = 'https://aistudiocdn.com/@ffmpeg/core@0.12.15/es2022';
-        const ffmpegWorkerURL = 'https://aistudiocdn.com/@ffmpeg/ffmpeg@0.12.15/es2022/worker.js';
+        const coreVersion = '0.12.10';
+
+        // URLs for all FFmpeg assets
+        const coreBaseURL = `https://cdn.jsdelivr.net/npm/@ffmpeg/core@${coreVersion}/dist/esm`;
+        const coreURL = `${coreBaseURL}/ffmpeg-core.js`;
+        const wasmURL = `${coreBaseURL}/ffmpeg-core.wasm`;
+        const coreWorkerURL = `${coreBaseURL}/ffmpeg-core.worker.js`;
         
+        let ffmpeg = ffmpegRef.current;
+        if (!ffmpeg) {
+            ffmpeg = new FFmpeg();
+            ffmpegRef.current = ffmpeg;
+        }
+
         ffmpeg.on('log', ({ message }) => console.log(message));
         ffmpeg.on('progress', ({ progress, time }) => {
             setRenderProgress(progress * 100);
             setRenderMessage(`Rendering... Frame time: ${time / 1000000}s`);
         });
-
-        await ffmpeg.load({
-            coreURL: await toBlobURL(`${coreBaseURL}/ffmpeg-core.js`, 'text/javascript'),
-            wasmURL: await toBlobURL(`${coreBaseURL}/ffmpeg-core.wasm`, 'application/wasm'),
-            workerURL: await toBlobURL(ffmpegWorkerURL, 'text/javascript'),
-        });
+        
+        if (!ffmpeg.isLoaded()) {
+            setRenderMessage('Loading FFmpeg core...');
+            await ffmpeg.load({
+                coreURL: await toBlobURL(coreURL, 'text/javascript'),
+                wasmURL: await toBlobURL(wasmURL, 'application/wasm'),
+                workerURL: await toBlobURL(coreWorkerURL, 'text/javascript'),
+            });
+        }
 
         setRenderMessage('Preparing files...');
         
-        // Write audio and video files to FFmpeg's virtual filesystem
         await ffmpeg.writeFile('audio.mp3', await fetchFile(audioFile));
         for (let i = 0; i < sortedScenes.length; i++) {
             const scene = sortedScenes[i];
@@ -111,7 +118,6 @@ const FinalCut: React.FC<FinalCutProps> = ({ scenes, projectConfig, onBack }) =>
         const filterComplex: string[] = [];
         const concatInputs: string[] = [];
 
-        // Build filter graph for looping and concatenation
         sortedScenes.forEach((scene, i) => {
             const videoIndex = i;
             const inputName = `[${videoIndex}:v]`;
@@ -125,18 +131,12 @@ const FinalCut: React.FC<FinalCutProps> = ({ scenes, projectConfig, onBack }) =>
         const finalFilter = `${filterComplex.join(';')};${concatInputs.join('')}concat=n=${sortedScenes.length}:v=1:a=0[v]`;
 
         const command = [
-            // Inputs for videos
             ...sortedScenes.map((_, i) => `-i`).flatMap((val, i) => [val, `scene_${String(i).padStart(2, '0')}.mp4`]),
-            // Input for audio
             '-i', 'audio.mp3',
-            // Filter graph
             '-filter_complex', finalFilter,
-            // Map the final video and original audio streams
             '-map', '[v]',
             '-map', `${sortedScenes.length}:a`,
-            // Use a reasonably fast preset
             '-preset', 'ultrafast',
-            // Set output format
             'output.mp4'
         ];
         
@@ -162,7 +162,7 @@ const FinalCut: React.FC<FinalCutProps> = ({ scenes, projectConfig, onBack }) =>
     } catch(error) {
         console.error("Rendering failed:", error);
         setRenderMessage(`Error during render: ${error instanceof Error ? error.message : 'Unknown error'}`);
-        // Keep dialog open to show error
+        setIsRendering(false);
         return; 
     }
     

@@ -529,6 +529,15 @@ const App: React.FC = () => {
           />
         );
       case AppMode.STORYBOARD:
+        if (!projectConfig) {
+          // This case should ideally not be reached if logic is correct,
+          // but this guard prevents a crash.
+          return (
+            <div className="flex-grow flex items-center justify-center">
+              <div className="w-16 h-16 border-4 border-t-transparent border-indigo-500 rounded-full animate-spin"></div>
+            </div>
+          );
+        }
         return (
           <Storyboard
             scenes={scenes}
@@ -538,16 +547,24 @@ const App: React.FC = () => {
             onGenerateScene={handleGenerateScene}
             onComplete={() => setAppMode(AppMode.FINAL_CUT)}
             onBack={handleBackToSetup}
-            projectConfig={projectConfig!}
+            projectConfig={projectConfig}
             requestCount={requestCount}
             onReorderScene={handleReorderScene}
           />
         );
       case AppMode.FINAL_CUT:
+        if (!projectConfig) {
+          // This case should ideally not be reached, but this guard prevents a crash.
+          return (
+            <div className="flex-grow flex items-center justify-center">
+              <div className="w-16 h-16 border-4 border-t-transparent border-indigo-500 rounded-full animate-spin"></div>
+            </div>
+          );
+        }
         return (
           <FinalCut
             scenes={scenes}
-            projectConfig={projectConfig!}
+            projectConfig={projectConfig}
             onBack={() => setAppMode(AppMode.STORYBOARD)}
           />
         );
