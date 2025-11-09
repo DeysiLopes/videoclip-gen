@@ -19,6 +19,7 @@ interface StoryboardProps {
   onUpdateScene: (id: string, updates: Partial<Scene>) => void;
   onDeleteScene: (id: string) => void;
   onGenerateScene: (sceneId: string) => void;
+  onReorderScene: (sceneId: string, newTimestamp: number) => void;
   onComplete: () => void;
   onBack: () => void;
   projectConfig: ProjectConfig;
@@ -31,6 +32,7 @@ const Storyboard: React.FC<StoryboardProps> = ({
   onUpdateScene,
   onDeleteScene,
   onGenerateScene,
+  onReorderScene,
   onComplete,
   onBack,
   projectConfig,
@@ -99,6 +101,7 @@ const Storyboard: React.FC<StoryboardProps> = ({
               currentTime={currentTime}
               onSeek={handleSeek}
               activeSceneId={activeScene?.id}
+              onReorderScene={onReorderScene}
             />
         </div>
       )}

@@ -265,6 +265,43 @@ const App: React.FC = () => {
     });
   }, []);
 
+  const handleReorderScene = useCallback(
+    async (sceneId: string, newTimestamp: number) => {
+      setScenes((prevScenes) => {
+        const draggedScene = prevScenes.find((s) => s.id === sceneId);
+        if (!draggedScene) return prevScenes;
+
+        // Temporarily assign the new timestamp to sort
+        const tempSortedScenes = prevScenes
+          .map((s) =>
+            s.id === sceneId ? {...s, timestamp: newTimestamp} : s,
+          )
+          .sort((a, b) => a.timestamp - b.timestamp);
+
+        let currentTime = 0;
+        const finalScenes: Scene[] = [];
+        const scenesToSave: Scene[] = [];
+
+        for (const scene of tempSortedScenes) {
+          const updatedScene = {...scene, timestamp: currentTime};
+          finalScenes.push(updatedScene);
+
+          const originalScene = prevScenes.find((s) => s.id === scene.id);
+          if (!originalScene || originalScene.timestamp !== updatedScene.timestamp) {
+            scenesToSave.push(updatedScene);
+          }
+
+          const duration = scene.intendedDuration ?? scene.duration ?? 0;
+          currentTime += duration;
+        }
+
+        scenesToSave.forEach((s) => dbService.saveScene(s));
+        return finalScenes;
+      });
+    },
+    [],
+  );
+
   const handleApiKeyDialogContinue = async () => {
     setShowApiKeyDialog(false);
     if (window.aistudio) {
@@ -503,6 +540,7 @@ const App: React.FC = () => {
             onBack={handleBackToSetup}
             projectConfig={projectConfig!}
             requestCount={requestCount}
+            onReorderScene={handleReorderScene}
           />
         );
       case AppMode.FINAL_CUT:

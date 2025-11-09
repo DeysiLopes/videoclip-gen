@@ -75,9 +75,12 @@ const FinalCut: React.FC<FinalCutProps> = ({ scenes, projectConfig, onBack }) =>
     const ffmpeg = ffmpegRef.current;
     
     try {
-        // Switched from unpkg to jsdelivr CDN to resolve potential "Failed to fetch" errors.
-        const coreBaseURL = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd';
-        const ffmpegWorkerURL = 'https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.15/dist/umd/worker.js';
+        // Updated FFmpeg asset URLs to use the es2022 build from aistudiocdn.com.
+        // This aligns with the version loaded by the import map, resolving a persistent CORS error
+        // by ensuring the main library, core, and worker are all loaded from a consistent source
+        // and use a compatible module format.
+        const coreBaseURL = 'https://aistudiocdn.com/@ffmpeg/core@0.12.15/es2022';
+        const ffmpegWorkerURL = 'https://aistudiocdn.com/@ffmpeg/ffmpeg@0.12.15/es2022/worker.js';
         
         ffmpeg.on('log', ({ message }) => console.log(message));
         ffmpeg.on('progress', ({ progress, time }) => {

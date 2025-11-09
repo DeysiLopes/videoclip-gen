@@ -2,7 +2,7 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
 */
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import { Scene, SceneStatus } from '../types';
 
 interface VisualTimelineProps {
@@ -11,6 +11,7 @@ interface VisualTimelineProps {
   currentTime: number;
   onSeek: (time: number) => void;
   activeSceneId?: string;
+  onReorderScene?: (sceneId: string, newTimestamp: number) => void;
 }
 
 const formatSeconds = (totalSeconds: number): string => {
@@ -37,9 +38,11 @@ const VisualTimeline: React.FC<VisualTimelineProps> = ({
   totalDuration, 
   currentTime,
   onSeek,
-  activeSceneId
+  activeSceneId,
+  onReorderScene
 }) => {
   const timelineRef = useRef<HTMLDivElement>(null);
+  const [draggedSceneId, setDraggedSceneId] = useState<string | null>(null);
 
   if (totalDuration === 0) {
     return null;
@@ -53,6 +56,45 @@ const VisualTimeline: React.FC<VisualTimelineProps> = ({
     const seekTime = totalDuration * percentage;
     onSeek(seekTime);
   };
+  
+  const handleDragStart = (e: React.DragEvent<HTMLDivElement>, scene: Scene) => {
+    if (!onReorderScene) return;
+    e.dataTransfer.setData('application/json', JSON.stringify(scene));
+    e.dataTransfer.effectAllowed = 'move';
+    setDraggedSceneId(scene.id);
+  };
+
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    if (!timelineRef.current || !onReorderScene) return;
+
+    try {
+        const sceneData = e.dataTransfer.getData('application/json');
+        if (!sceneData) return;
+        
+        const scene: Scene = JSON.parse(sceneData);
+
+        const rect = timelineRef.current.getBoundingClientRect();
+        const dropX = e.clientX - rect.left;
+        const percentage = Math.max(0, Math.min(1, dropX / rect.width));
+        const newTimestamp = totalDuration * percentage;
+
+        onReorderScene(scene.id, newTimestamp);
+    } catch (err) {
+        console.error("Drop failed:", err);
+    } finally {
+        setDraggedSceneId(null);
+    }
+  };
+
+  const handleDragEnd = () => {
+    setDraggedSceneId(null);
+  };
+
 
   const playheadPosition = (currentTime / totalDuration) * 100;
 
@@ -64,8 +106,10 @@ const VisualTimeline: React.FC<VisualTimelineProps> = ({
       </div>
       <div 
         ref={timelineRef}
-        className="w-full h-8 bg-gray-900/50 rounded-lg relative cursor-pointer group"
+        className={`w-full h-8 bg-gray-900/50 rounded-lg relative group ${onReorderScene ? '' : 'cursor-pointer'}`}
         onClick={handleTimelineClick}
+        onDragOver={onReorderScene ? handleDragOver : undefined}
+        onDrop={onReorderScene ? handleDrop : undefined}
       >
         {/* Scene blocks */}
         {scenes.map((scene, index) => {
@@ -81,7 +125,10 @@ const VisualTimeline: React.FC<VisualTimelineProps> = ({
           return (
             <div
               key={scene.id}
-              className={`absolute h-full rounded-md transition-all duration-150 ease-in-out ${statusColors[scene.status]} ${isActive ? 'ring-2 ring-white ring-offset-2 ring-offset-gray-800' : 'opacity-70'}`}
+              draggable={!!onReorderScene}
+              onDragStart={(e) => handleDragStart(e, scene)}
+              onDragEnd={handleDragEnd}
+              className={`absolute h-full rounded-md transition-all duration-150 ease-in-out ${statusColors[scene.status]} ${isActive ? 'ring-2 ring-white ring-offset-2 ring-offset-gray-800' : 'opacity-70'} ${onReorderScene ? 'cursor-grab' : ''} transition-opacity ${draggedSceneId === scene.id ? 'opacity-30' : ''}`}
               style={{ left: `${left}%`, width: `${width}%` }}
               title={`Scene ${index + 1}: ${formatSeconds(scene.timestamp)} - ${formatSeconds(scene.timestamp + displayDuration)}`}
             >

@@ -190,7 +190,8 @@ const SceneCard: React.FC<SceneCardProps> = ({
               />
               <div className="absolute bottom-2 left-2 bg-black/60 text-white text-xs px-2 py-0.5 rounded font-mono flex items-center gap-1.5">
                 {formatSeconds(scene.duration ?? 0)}{durationLabel}
-                {isLooping && <LoopIcon className="w-3 h-3" title="This clip is looped to fill the intended duration" />}
+                {/* Fix: The 'title' attribute is not a valid prop on the LoopIcon component. Wrapped it in a span to provide the tooltip. */}
+                {isLooping && <span title="This clip is looped to fill the intended duration"><LoopIcon className="w-3 h-3" /></span>}
               </div>
               <button
                 onClick={handleDownload}
