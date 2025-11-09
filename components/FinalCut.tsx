@@ -75,7 +75,10 @@ const FinalCut: React.FC<FinalCutProps> = ({ scenes, projectConfig, onBack }) =>
     const ffmpeg = ffmpegRef.current;
     
     try {
-        const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd'
+        // Switched from unpkg to jsdelivr CDN to resolve potential "Failed to fetch" errors.
+        const coreBaseURL = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd';
+        const ffmpegWorkerURL = 'https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.15/dist/umd/worker.js';
+        
         ffmpeg.on('log', ({ message }) => console.log(message));
         ffmpeg.on('progress', ({ progress, time }) => {
             setRenderProgress(progress * 100);
@@ -83,8 +86,9 @@ const FinalCut: React.FC<FinalCutProps> = ({ scenes, projectConfig, onBack }) =>
         });
 
         await ffmpeg.load({
-            coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
-            wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+            coreURL: await toBlobURL(`${coreBaseURL}/ffmpeg-core.js`, 'text/javascript'),
+            wasmURL: await toBlobURL(`${coreBaseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+            workerURL: await toBlobURL(ffmpegWorkerURL, 'text/javascript'),
         });
 
         setRenderMessage('Preparing files...');

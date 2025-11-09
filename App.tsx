@@ -9,6 +9,7 @@ import FinalCut from './components/FinalCut';
 import LocalApiKeyDialog from './components/LocalApiKeyDialog';
 import ProjectSetup from './components/ProjectSetup';
 import Storyboard from './components/Storyboard';
+import {dbService} from './services/dbService';
 import {generateVideo} from './services/geminiService';
 import {
   AppMode,
@@ -30,12 +31,15 @@ const getVideoDuration = (url: string): Promise<number> => {
     };
     video.onerror = (e) => {
       const errorEvent = e as ErrorEvent;
-      reject(new Error(`Error loading video for duration check: ${errorEvent.message}`));
+      reject(
+        new Error(
+          `Error loading video for duration check: ${errorEvent.message}`,
+        ),
+      );
     };
     video.src = url;
   });
 };
-
 
 const Stepper: React.FC<{currentMode: AppMode}> = ({currentMode}) => {
   const steps = [AppMode.SETUP, AppMode.STORYBOARD, AppMode.FINAL_CUT];
@@ -106,7 +110,8 @@ const Stepper: React.FC<{currentMode: AppMode}> = ({currentMode}) => {
   );
 };
 
-const timeRegex = /(?:(\d{1,2}:\d{2})\s*(?:-|–)\s*(\d{1,2}:\d{2}))|(?:Duração sugerida|Duração|Duration):\s*(\d{1,2}:\d{2})/i;
+const timeRegex =
+  /(?:(\d{1,2}:\d{2})\s*(?:-|–)\s*(\d{1,2}:\d{2}))|(?:Duração sugerida|Duração|Duration):\s*(\d{1,2}:\d{2})/i;
 const parseTime = (timeStr: string): number => {
   const parts = timeStr.split(':').map(Number);
   if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
@@ -114,23 +119,25 @@ const parseTime = (timeStr: string): number => {
   }
   return 0;
 };
-const parsePromptForTime = (prompt: string, previousSceneEnd: number): { timestamp: number, intendedDuration?: number } => {
-    const match = prompt.match(timeRegex);
-    if (match) {
-        if (match[1] && match[2]) {
-            const start = parseTime(match[1]);
-            const end = parseTime(match[2]);
-            if (end > start) {
-                return { timestamp: start, intendedDuration: end - start };
-            }
-        } else if (match[3]) {
-            const duration = parseTime(match[3]);
-            return { timestamp: previousSceneEnd, intendedDuration: duration };
-        }
+const parsePromptForTime = (
+  prompt: string,
+  previousSceneEnd: number,
+): {timestamp: number; intendedDuration?: number} => {
+  const match = prompt.match(timeRegex);
+  if (match) {
+    if (match[1] && match[2]) {
+      const start = parseTime(match[1]);
+      const end = parseTime(match[2]);
+      if (end > start) {
+        return {timestamp: start, intendedDuration: end - start};
+      }
+    } else if (match[3]) {
+      const duration = parseTime(match[3]);
+      return {timestamp: previousSceneEnd, intendedDuration: duration};
     }
-    return { timestamp: previousSceneEnd };
+  }
+  return {timestamp: previousSceneEnd};
 };
-
 
 const App: React.FC = () => {
   const [appMode, setAppMode] = useState<AppMode>(AppMode.SETUP);
@@ -142,21 +149,22 @@ const App: React.FC = () => {
   const [showLocalApiKeyDialog, setShowLocalApiKeyDialog] = useState(false);
   const [localApiKey, setLocalApiKey] = useState<string | null>(null);
   const [requestCount, setRequestCount] = useState(0);
+  const [isDbReady, setIsDbReady] = useState(false);
   const objectUrls = useRef(new Set<string>());
 
   useEffect(() => {
     // Cleanup any created object URLs on component unmount
     return () => {
-      objectUrls.current.forEach(url => URL.revokeObjectURL(url));
+      objectUrls.current.forEach((url) => URL.revokeObjectURL(url));
       if (projectConfig?.audioUrl) {
-          URL.revokeObjectURL(projectConfig.audioUrl);
+        URL.revokeObjectURL(projectConfig.audioUrl);
       }
     };
   }, [projectConfig?.audioUrl]);
 
-
   useEffect(() => {
-    const checkApiKey = async () => {
+    const initializeApp = async () => {
+      // 1. Check API Key
       if (window.aistudio) {
         // AI Studio environment
         try {
@@ -176,54 +184,102 @@ const App: React.FC = () => {
           setShowLocalApiKeyDialog(true);
         }
       }
+
+      // 2. Initialize DB and load data
+      await dbService.initDB();
+      try {
+        const loadedConfig = await dbService.getProjectConfig();
+        if (loadedConfig && loadedConfig.technicalSheet) {
+          // Check if a project was actually saved
+          let configWithUrl = {...loadedConfig};
+          if (loadedConfig.audioFile) {
+            const url = URL.createObjectURL(loadedConfig.audioFile);
+            objectUrls.current.add(url);
+            configWithUrl.audioUrl = url;
+          }
+          setProjectConfig(configWithUrl);
+
+          const loadedScenes = await dbService.getScenes();
+          const scenesWithUrls = loadedScenes.map((scene) => {
+            if (scene.videoBlob) {
+              const url = URL.createObjectURL(scene.videoBlob);
+              objectUrls.current.add(url);
+              return {...scene, videoUrl: url};
+            }
+            return scene;
+          });
+          setScenes(scenesWithUrls);
+          setAppMode(AppMode.STORYBOARD);
+        }
+      } catch (error) {
+        console.error('Failed to load project from database:', error);
+      } finally {
+        setIsDbReady(true);
+      }
     };
-    checkApiKey();
+
+    initializeApp();
   }, []);
 
-  const addScene = useCallback(() => {
-    const sorted = [...scenes].sort((a,b) => a.timestamp - b.timestamp);
+  const addScene = useCallback(async () => {
+    const sorted = [...scenes].sort((a, b) => a.timestamp - b.timestamp);
     const lastScene = sorted[sorted.length - 1];
-    const previousSceneEnd = lastScene ? (lastScene.timestamp + (lastScene.intendedDuration ?? lastScene.duration ?? 0)) : 0;
-    
+    const previousSceneEnd = lastScene
+      ? lastScene.timestamp + (lastScene.intendedDuration ?? lastScene.duration ?? 0)
+      : 0;
+
     const newScene: Scene = {
       id: Date.now().toString(),
       prompt: '',
       timestamp: previousSceneEnd,
       status: SceneStatus.DRAFT,
     };
-    const newScenes = [...scenes, newScene].sort((a, b) => a.timestamp - b.timestamp);
+    await dbService.saveScene(newScene);
+    const newScenes = [...scenes, newScene].sort(
+      (a, b) => a.timestamp - b.timestamp,
+    );
     setScenes(newScenes);
   }, [scenes]);
-  
-  const updateScene = useCallback((id: string, updates: Partial<Scene>) => {
-    setScenes(prev => {
-        const sortedPrev = [...prev].sort((a, b) => a.timestamp - b.timestamp);
-        let lastSceneEnd = 0;
-        const updatedScenes = sortedPrev.map((s, index) => {
-          const prevScene = index > 0 ? sortedPrev[index - 1] : null;
-          lastSceneEnd = prevScene ? (prevScene.timestamp + (prevScene.intendedDuration ?? prevScene.duration ?? 0)) : 0;
 
-          if (s.id === id) {
-            const newPrompt = updates.prompt ?? s.prompt;
-            const timeInfo = parsePromptForTime(newPrompt, lastSceneEnd);
-            return {...s, ...updates, ...timeInfo};
-          }
-          return s;
-        });
-        
-        updatedScenes.sort((a,b) => a.timestamp - b.timestamp);
-        return updatedScenes;
-    });
-  }, []);
-  
-  const deleteScene = useCallback((id: string) => {
-    setScenes(prev => {
-        const sceneToDelete = prev.find(s => s.id === id);
-        if (sceneToDelete?.videoUrl) {
-            URL.revokeObjectURL(sceneToDelete.videoUrl);
-            objectUrls.current.delete(sceneToDelete.videoUrl);
+  const updateScene = useCallback(async (id: string, updates: Partial<Scene>) => {
+    let updatedScene: Scene | undefined;
+    setScenes((prev) => {
+      const sortedPrev = [...prev].sort((a, b) => a.timestamp - b.timestamp);
+      let lastSceneEnd = 0;
+      const updatedScenes = sortedPrev.map((s, index) => {
+        const prevScene = index > 0 ? sortedPrev[index - 1] : null;
+        lastSceneEnd = prevScene
+          ? prevScene.timestamp +
+            (prevScene.intendedDuration ?? prevScene.duration ?? 0)
+          : 0;
+
+        if (s.id === id) {
+          const newPrompt = updates.prompt ?? s.prompt;
+          const timeInfo = parsePromptForTime(newPrompt, lastSceneEnd);
+          updatedScene = {...s, ...updates, ...timeInfo};
+          return updatedScene;
         }
-        return prev.filter(s => s.id !== id);
+        return s;
+      });
+
+      updatedScenes.sort((a, b) => a.timestamp - b.timestamp);
+      return updatedScenes;
+    });
+
+    if (updatedScene) {
+      await dbService.saveScene(updatedScene);
+    }
+  }, []);
+
+  const deleteScene = useCallback(async (id: string) => {
+    await dbService.deleteScene(id);
+    setScenes((prev) => {
+      const sceneToDelete = prev.find((s) => s.id === id);
+      if (sceneToDelete?.videoUrl) {
+        URL.revokeObjectURL(sceneToDelete.videoUrl);
+        objectUrls.current.delete(sceneToDelete.videoUrl);
+      }
+      return prev.filter((s) => s.id !== id);
     });
   }, []);
 
@@ -233,7 +289,7 @@ const App: React.FC = () => {
       await window.aistudio.openSelectKey();
     }
   };
-  
+
   const handleLocalApiKeySave = (key: string) => {
     if (key.trim()) {
       const trimmedKey = key.trim();
@@ -243,10 +299,29 @@ const App: React.FC = () => {
     }
   };
 
-  const handleProjectSetupComplete = useCallback((config: ProjectConfig) => {
-    setProjectConfig(config);
-    setAppMode(AppMode.STORYBOARD);
-  }, []);
+  const handleProjectSetupComplete = useCallback(
+    async (config: ProjectConfig) => {
+      // Clean up old state
+      objectUrls.current.forEach((url) => URL.revokeObjectURL(url));
+      objectUrls.current.clear();
+      if (projectConfig?.audioUrl) {
+        URL.revokeObjectURL(projectConfig.audioUrl);
+      }
+
+      // Clear old data from DB
+      await dbService.clearScenes();
+
+      // Save new config
+      await dbService.saveProjectConfig(config);
+
+      // Update state
+      setScenes([]);
+      setRequestCount(0);
+      setProjectConfig(config);
+      setAppMode(AppMode.STORYBOARD);
+    },
+    [projectConfig],
+  );
 
   const handleBackToSetup = useCallback(() => {
     setAppMode(AppMode.SETUP);
@@ -258,15 +333,15 @@ const App: React.FC = () => {
 
       const sceneToGenerate = scenes.find((s) => s.id === sceneId);
       if (!sceneToGenerate) return;
-      
-      let apiKeyToUse : string | null | undefined = null;
+
+      let apiKeyToUse: string | null | undefined = null;
       if (window.aistudio) {
         try {
           if (!(await window.aistudio.hasSelectedApiKey())) {
             setShowApiKeyDialog(true);
             return;
           }
-           // In AI Studio, the key is handled by the environment via process.env
+          // In AI Studio, the key is handled by the environment via process.env
           apiKeyToUse = process.env.API_KEY;
         } catch (error) {
           setShowApiKeyDialog(true);
@@ -275,32 +350,27 @@ const App: React.FC = () => {
       } else {
         apiKeyToUse = localApiKey;
       }
-      
+
       if (!apiKeyToUse) {
         const errorUpdate: Partial<Scene> = {
-            status: SceneStatus.ERROR,
-            errorMessage: 'API Key is not configured. Please provide your key.',
-        }
-        setScenes(prev => prev.map(s => s.id === sceneId ? {...s, ...errorUpdate} : s));
+          status: SceneStatus.ERROR,
+          errorMessage: 'API Key is not configured. Please provide your key.',
+        };
+        updateScene(sceneId, errorUpdate);
         if (!window.aistudio) {
-            setShowLocalApiKeyDialog(true);
+          setShowLocalApiKeyDialog(true);
         }
         return;
       }
-
 
       // Revoke old URL if it exists, before generating a new one
       if (sceneToGenerate.videoUrl) {
         URL.revokeObjectURL(sceneToGenerate.videoUrl);
         objectUrls.current.delete(sceneToGenerate.videoUrl);
       }
-      
-      setRequestCount(prev => prev + 1);
-      setScenes((prev) =>
-        prev.map((s) =>
-          s.id === sceneId ? {...s, status: SceneStatus.GENERATING} : s,
-        ),
-      );
+
+      setRequestCount((prev) => prev + 1);
+      updateScene(sceneId, {status: SceneStatus.GENERATING});
 
       const sortedScenes = [...scenes].sort((a, b) => a.timestamp - b.timestamp);
       const sceneIndex = sortedScenes.findIndex((s) => s.id === sceneId);
@@ -319,17 +389,20 @@ const App: React.FC = () => {
       }
 
       const hasReferences =
-        projectConfig.characterImages.length > 0 || projectConfig.styleImages.length > 0;
+        projectConfig.characterImages.length > 0 ||
+        projectConfig.styleImages.length > 0;
       const isExtending = !!previousVideo;
       const useVeoHighQuality = hasReferences || isExtending;
 
-      const characterInstruction = projectConfig.characterImages.length > 0
-        ? `CRITICAL INSTRUCTION: For the main character, prioritize the likeness and face from the provided reference images ONLY. For all other attributes (costume, environment, etc.), strictly follow the Technical Sheet and Scene Description.`
-        : '';
-        
-      const singingInstruction = projectConfig.characterImages.length > 0
-        ? `The main character should appear to be singing or performing the song. Ensure the mouth movements are varied and expressive, matching the emotional tone of a gospel performance, rather than just opening and closing randomly.`
-        : '';
+      const characterInstruction =
+        projectConfig.characterImages.length > 0
+          ? `CRITICAL INSTRUCTION: For the main character, prioritize the likeness and face from the provided reference images ONLY. For all other attributes (costume, environment, etc.), strictly follow the Technical Sheet and Scene Description.`
+          : '';
+
+      const singingInstruction =
+        projectConfig.characterImages.length > 0
+          ? `The main character should appear to be singing or performing the song. Ensure the mouth movements are varied and expressive, matching the emotional tone of a gospel performance, rather than just opening and closing randomly.`
+          : '';
 
       const continuityInstruction = isExtending
         ? `This scene is a direct continuation of the previous one. Ensure a seamless visual and narrative transition.`
@@ -376,26 +449,22 @@ const App: React.FC = () => {
       };
 
       try {
-        const {objectUrl, blob, video} = await generateVideo(params, apiKeyToUse);
+        const {objectUrl, blob, video} = await generateVideo(
+          params,
+          apiKeyToUse,
+        );
         objectUrls.current.add(objectUrl);
         const duration = await getVideoDuration(objectUrl);
 
-        setScenes((prev) =>
-          prev.map((s) =>
-            s.id === sceneId
-              ? {
-                  ...s,
-                  status: SceneStatus.GENERATED,
-                  videoUrl: objectUrl,
-                  videoBlob: blob,
-                  videoObject: video,
-                  duration: duration,
-                  errorMessage: undefined,
-                  errorType: undefined,
-                }
-              : s,
-          ),
-        );
+        updateScene(sceneId, {
+          status: SceneStatus.GENERATED,
+          videoUrl: objectUrl,
+          videoBlob: blob,
+          videoObject: video,
+          duration: duration,
+          errorMessage: undefined,
+          errorType: undefined,
+        });
       } catch (error) {
         console.error('Scene generation failed:', error);
         let errorMessage =
@@ -406,30 +475,31 @@ const App: React.FC = () => {
           const apiError = JSON.parse(errorMessage);
           if (apiError?.error?.code === 429) {
             errorType = 'QUOTA_EXCEEDED';
-            errorMessage = apiError?.error?.message ?? 'Quota exceeded. Please check your plan and billing details.';
+            errorMessage =
+              apiError?.error?.message ??
+              'Quota exceeded. Please check your plan and billing details.';
           }
         } catch (e) {
           // Not a JSON error, keep original message
         }
-
-        setScenes((prev) =>
-          prev.map((s) =>
-            s.id === sceneId
-              ? {
-                  ...s,
-                  status: SceneStatus.ERROR,
-                  errorMessage: errorMessage,
-                  errorType: errorType,
-                }
-              : s,
-          ),
-        );
+        updateScene(sceneId, {
+          status: SceneStatus.ERROR,
+          errorMessage: errorMessage,
+          errorType: errorType,
+        });
       }
     },
-    [projectConfig, scenes, localApiKey],
+    [projectConfig, scenes, localApiKey, updateScene],
   );
 
   const renderContent = () => {
+    if (!isDbReady) {
+      return (
+        <div className="flex-grow flex items-center justify-center">
+          <div className="w-16 h-16 border-4 border-t-transparent border-indigo-500 rounded-full animate-spin"></div>
+        </div>
+      );
+    }
     switch (appMode) {
       case AppMode.SETUP:
         return (
