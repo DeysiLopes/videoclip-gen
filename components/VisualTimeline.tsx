@@ -50,7 +50,8 @@ const VisualTimeline: React.FC<VisualTimelineProps> = ({
 
   const handleTimelineClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!timelineRef.current) return;
-    const rect = timelineRef.current.getBoundingClientRect();
+    // Fix: Property 'getBoundingClientRect' does not exist on type 'HTMLDivElement'.
+    const rect = (timelineRef.current as any).getBoundingClientRect();
     const clickX = e.clientX - rect.left;
     const percentage = clickX / rect.width;
     const seekTime = totalDuration * percentage;
@@ -59,8 +60,10 @@ const VisualTimeline: React.FC<VisualTimelineProps> = ({
   
   const handleDragStart = (e: React.DragEvent<HTMLDivElement>, scene: Scene) => {
     if (!onReorderScene) return;
-    e.dataTransfer.setData('application/json', JSON.stringify(scene));
-    e.dataTransfer.effectAllowed = 'move';
+    // Fix: Property 'setData' does not exist on type 'DataTransfer'.
+    (e.dataTransfer as any).setData('application/json', JSON.stringify(scene));
+    // Fix: Property 'effectAllowed' does not exist on type 'DataTransfer'.
+    (e.dataTransfer as any).effectAllowed = 'move';
     setDraggedSceneId(scene.id);
   };
 
@@ -73,12 +76,14 @@ const VisualTimeline: React.FC<VisualTimelineProps> = ({
     if (!timelineRef.current || !onReorderScene) return;
 
     try {
-        const sceneData = e.dataTransfer.getData('application/json');
+        // Fix: Property 'getData' does not exist on type 'DataTransfer'.
+        const sceneData = (e.dataTransfer as any).getData('application/json');
         if (!sceneData) return;
         
         const scene: Scene = JSON.parse(sceneData);
 
-        const rect = timelineRef.current.getBoundingClientRect();
+        // Fix: Property 'getBoundingClientRect' does not exist on type 'HTMLDivElement'.
+        const rect = (timelineRef.current as any).getBoundingClientRect();
         const dropX = e.clientX - rect.left;
         const percentage = Math.max(0, Math.min(1, dropX / rect.width));
         const newTimestamp = totalDuration * percentage;

@@ -51,14 +51,16 @@ const Storyboard: React.FC<StoryboardProps> = ({
 
   const handleTimeUpdate = useCallback(() => {
     if (audioRef.current) {
-       const newTime = audioRef.current.currentTime;
+       // Fix: Property 'currentTime' does not exist on type 'HTMLAudioElement'.
+       const newTime = (audioRef.current as any).currentTime;
        setCurrentTime(newTime);
 
        // Intelligent Scene Looping
        if (isPlaying && activeScene) {
          const sceneEndTime = activeScene.timestamp + (activeScene.intendedDuration ?? activeScene.duration ?? 0);
          if (newTime >= sceneEndTime || newTime < activeScene.timestamp) {
-           audioRef.current.currentTime = activeScene.timestamp;
+           // Fix: Property 'currentTime' does not exist on type 'HTMLAudioElement'.
+           (audioRef.current as any).currentTime = activeScene.timestamp;
          }
        }
     }
@@ -66,13 +68,15 @@ const Storyboard: React.FC<StoryboardProps> = ({
 
   const handleLoadedMetadata = useCallback(() => {
      if (audioRef.current) {
-       setDuration(audioRef.current.duration);
+       // Fix: Property 'duration' does not exist on type 'HTMLAudioElement'.
+       setDuration((audioRef.current as any).duration);
     }
   }, []);
 
   const handleSeek = (time: number) => {
     if (audioRef.current) {
-      audioRef.current.currentTime = time;
+      // Fix: Property 'currentTime' does not exist on type 'HTMLAudioElement'.
+      (audioRef.current as any).currentTime = time;
       setCurrentTime(time);
     }
   }

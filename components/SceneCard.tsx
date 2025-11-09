@@ -58,8 +58,8 @@ const SceneCard: React.FC<SceneCardProps> = ({
 
   useEffect(() => {
     if (isEditing && textareaRef.current) {
-      textareaRef.current.style.height = 'auto';
-      textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
+      (textareaRef.current as any).style.height = 'auto';
+      (textareaRef.current as any).style.height = `${(textareaRef.current as any).scrollHeight}px`;
     }
   }, [prompt, isEditing]);
 
@@ -72,15 +72,15 @@ const SceneCard: React.FC<SceneCardProps> = ({
       const relativeTime = (masterCurrentTime - scene.timestamp) % scene.duration;
       
       // Seek only if the difference is significant to prevent stuttering from minor updates
-      if (Math.abs(video.currentTime - relativeTime) > 0.2) {
-        video.currentTime = relativeTime;
+      if (Math.abs((video as any).currentTime - relativeTime) > 0.2) {
+        (video as any).currentTime = relativeTime;
       }
-      if (video.paused) {
-        video.play().catch(e => console.error("Video play failed:", e));
+      if ((video as any).paused) {
+        (video as any).play().catch(e => console.error("Video play failed:", e));
       }
     } else {
-      if (!video.paused) {
-        video.pause();
+      if (!(video as any).paused) {
+        (video as any).pause();
       }
     }
   }, [isActive, isPlaying, masterCurrentTime, scene.timestamp, scene.duration]);
@@ -102,16 +102,17 @@ const SceneCard: React.FC<SceneCardProps> = ({
 
   const handleDownload = () => {
     if (!scene.videoUrl || !scene.videoBlob) return;
-    const a = document.createElement('a');
+    const a = (window as any).document.createElement('a');
     a.href = scene.videoUrl;
     a.download = `DreamDirector_Scene_${sceneNumber}.mp4`;
-    document.body.appendChild(a);
+    (window as any).document.body.appendChild(a);
     a.click();
-    document.body.removeChild(a);
+    (window as any).document.body.removeChild(a);
   };
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+    // Fix: Cast to any to access files property, due to a potential TS configuration issue.
+    const file = (e.target as any).files?.[0];
     if (!file) return;
 
     onUpdate(scene.id, {status: SceneStatus.GENERATING}); // Show a loading state
@@ -144,7 +145,7 @@ const SceneCard: React.FC<SceneCardProps> = ({
     }
 
     if (uploadInputRef.current) {
-      uploadInputRef.current.value = '';
+      (uploadInputRef.current as any).value = '';
     }
   };
 
@@ -165,7 +166,8 @@ const SceneCard: React.FC<SceneCardProps> = ({
           <textarea
             ref={textareaRef}
             value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
+            // Fix: Cast to any to access value property, due to a potential TS configuration issue.
+            onChange={(e) => setPrompt((e.target as any).value)}
             placeholder="Describe this scene... e.g., 'CENA 1 (0:00 – 0:35) - A singer appears...'"
             className="w-full bg-gray-700/50 p-2 rounded-md resize-none text-gray-200 placeholder-gray-500 max-h-40"
             rows={3}
@@ -246,7 +248,7 @@ const SceneCard: React.FC<SceneCardProps> = ({
               accept="video/*"
             />
             <button
-              onClick={() => uploadInputRef.current?.click()}
+              onClick={() => (uploadInputRef.current as any)?.click()}
               className="px-4 py-1.5 bg-gray-600 rounded-md text-sm font-semibold hover:bg-gray-700 flex items-center gap-2">
               <UploadIcon className="w-4 h-4"/>
               Upload

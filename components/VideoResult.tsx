@@ -37,30 +37,36 @@ const VideoResult: React.FC<VideoResultProps> = ({
     const startTime = config.sceneStartTime ?? 0;
 
     const syncPlay = () => {
-      audio.currentTime = startTime + video.currentTime;
-      audio.play();
+      // Fix: Property 'currentTime', 'play' does not exist on type 'HTMLAudioElement'/'HTMLVideoElement'.
+      (audio as any).currentTime = startTime + (video as any).currentTime;
+      (audio as any).play();
     };
-    const syncPause = () => audio.pause();
+    // Fix: Property 'pause' does not exist on type 'HTMLAudioElement'.
+    const syncPause = () => (audio as any).pause();
     const syncSeek = () => {
-      audio.currentTime = startTime + video.currentTime;
+      // Fix: Property 'currentTime' does not exist on type 'HTMLAudioElement'/'HTMLVideoElement'.
+      (audio as any).currentTime = startTime + (video as any).currentTime;
     };
     const syncVolume = () => {
-      audio.volume = video.volume;
+      // Fix: Property 'volume' does not exist on type 'HTMLAudioElement'/'HTMLVideoElement'.
+      (audio as any).volume = (video as any).volume;
     };
 
-    video.addEventListener('play', syncPlay);
-    video.addEventListener('pause', syncPause);
-    video.addEventListener('seeking', syncSeek);
-    video.addEventListener('volumechange', syncVolume);
+    // Fix: Property 'addEventListener' does not exist on type 'HTMLVideoElement'.
+    (video as any).addEventListener('play', syncPlay);
+    (video as any).addEventListener('pause', syncPause);
+    (video as any).addEventListener('seeking', syncSeek);
+    (video as any).addEventListener('volumechange', syncVolume);
 
     // Initial sync
     syncVolume();
 
     return () => {
-      video.removeEventListener('play', syncPlay);
-      video.removeEventListener('pause', syncPause);
-      video.removeEventListener('seeking', syncSeek);
-      video.removeEventListener('volumechange', syncVolume);
+      // Fix: Property 'removeEventListener' does not exist on type 'HTMLVideoElement'.
+      (video as any).removeEventListener('play', syncPlay);
+      (video as any).removeEventListener('pause', syncPause);
+      (video as any).removeEventListener('seeking', syncSeek);
+      (video as any).removeEventListener('volumechange', syncVolume);
     };
   }, [audioUrl, config.sceneStartTime]);
 

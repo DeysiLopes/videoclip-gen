@@ -34,7 +34,8 @@ const fileToImageFile = (file: File): Promise<ImageFile> => {
 
 const extractVideoFrame = (videoFile: File): Promise<ImageFile> => {
   return new Promise((resolve, reject) => {
-    const video = document.createElement('video');
+    // Fix: Cannot find name 'document'.
+    const video = (window as any).document.createElement('video');
     video.preload = 'metadata';
     video.src = URL.createObjectURL(videoFile);
     video.muted = true;
@@ -49,7 +50,8 @@ const extractVideoFrame = (videoFile: File): Promise<ImageFile> => {
 
     video.onseeked = () => {
       setTimeout(() => {
-        const canvas = document.createElement('canvas');
+        // Fix: Cannot find name 'document'.
+        const canvas = (window as any).document.createElement('canvas');
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
         const ctx = canvas.getContext('2d');
@@ -112,7 +114,8 @@ const StyleUploader: React.FC<{
 }> = ({onSelect, onRemove, styleSourceFile, label, description}) => {
   const inputRef = useRef<HTMLInputElement>(null);
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+    // Fix: Cast to any to access files property, due to a potential TS configuration issue.
+    const file = (e.target as any).files?.[0];
     if (file) {
       try {
         let frame: ImageFile;
@@ -121,19 +124,21 @@ const StyleUploader: React.FC<{
         } else if (file.type.startsWith('image/')) {
           frame = await fileToImageFile(file);
         } else {
-          alert('Unsupported file type. Please upload an image or video.');
+          // Fix: Cannot find name 'alert'.
+          (window as any).alert('Unsupported file type. Please upload an image or video.');
           return;
         }
         onSelect(frame, file);
       } catch (error) {
         console.error('Error processing file:', error);
-        alert(
+        // Fix: Cannot find name 'alert'.
+        (window as any).alert(
           `Error processing file: ${error instanceof Error ? error.message : 'Unknown error'}`,
         );
       }
     }
     if (inputRef.current) {
-      inputRef.current.value = '';
+      (inputRef.current as any).value = '';
     }
   };
 
@@ -172,7 +177,7 @@ const StyleUploader: React.FC<{
       ) : (
         <button
           type="button"
-          onClick={() => inputRef.current?.click()}
+          onClick={() => (inputRef.current as any)?.click()}
           className="w-32 h-32 bg-gray-700/50 hover:bg-gray-700 border-2 border-dashed border-gray-600 rounded-lg flex flex-col items-center justify-center text-gray-400 hover:text-white transition-colors flex-shrink-0">
           <UploadIcon className="w-8 h-8" />
           <span className="text-sm mt-2">Upload</span>
@@ -287,7 +292,8 @@ const ProjectSetup: React.FC<ProjectSetupProps> = ({
   const handleTechnicalSheetChange = (
     e: React.ChangeEvent<HTMLTextAreaElement>,
   ) => {
-    const newText = e.target.value;
+    // Fix: Cast to any to access value property, due to a potential TS configuration issue.
+    const newText = (e.target as any).value;
     setTechnicalSheet(newText);
     const {aspectRatio, resolution} = parseConfigFromSheet(newText);
     setAspectRatio(aspectRatio);
@@ -295,7 +301,8 @@ const ProjectSetup: React.FC<ProjectSetupProps> = ({
   };
 
   const handleCharacterImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+    // Fix: Cast to any to access files property, due to a potential TS configuration issue.
+    const file = (e.target as any).files?.[0];
     if (file && characterImages.length < 5) {
         try {
             const imageFile = await fileToImageFile(file);
@@ -305,7 +312,7 @@ const ProjectSetup: React.FC<ProjectSetupProps> = ({
         }
     }
     if (characterImageInputRef.current) {
-        characterImageInputRef.current.value = '';
+        (characterImageInputRef.current as any).value = '';
     }
   };
 
@@ -394,7 +401,7 @@ const ProjectSetup: React.FC<ProjectSetupProps> = ({
                     {characterImages.length < 5 && (
                         <button
                             type="button"
-                            onClick={() => characterImageInputRef.current?.click()}
+                            onClick={() => (characterImageInputRef.current as any)?.click()}
                             className="w-24 h-24 bg-gray-700/50 hover:bg-gray-700 border-2 border-dashed border-gray-600 rounded-lg flex flex-col items-center justify-center text-gray-400 hover:text-white transition-colors flex-shrink-0">
                             <UploadIcon className="w-8 h-8" />
                             <span className="text-xs mt-2">Upload ({characterImages.length}/5)</span>

@@ -21,12 +21,13 @@ const AudioTrackManager: React.FC<AudioTrackManagerProps> = ({
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+    // Fix: Cast to any to access files property, due to a potential TS configuration issue.
+    const file = (e.target as any).files?.[0];
     if (file) {
       onUpload(file);
     }
      if (inputRef.current) {
-      inputRef.current.value = '';
+      (inputRef.current as any).value = '';
     }
   };
 
@@ -58,7 +59,7 @@ const AudioTrackManager: React.FC<AudioTrackManagerProps> = ({
     <div className="mb-4 w-full">
       <button
         type="button"
-        onClick={() => inputRef.current?.click()}
+        onClick={() => (inputRef.current as any)?.click()}
         className="w-full p-4 bg-gray-700/50 hover:bg-gray-700 border-2 border-dashed border-gray-600 rounded-lg flex items-center justify-center text-gray-400 hover:text-white transition-colors"
       >
         <MusicIcon className="w-6 h-6 mr-3" />

@@ -5,7 +5,8 @@
 
 export const getVideoDuration = (url: string): Promise<number> => {
   return new Promise((resolve, reject) => {
-    const video = document.createElement('video');
+    // Fix: Cannot find name 'document'.
+    const video = (window as any).document.createElement('video');
     video.preload = 'metadata';
     video.onloadedmetadata = () => {
       resolve(video.duration);

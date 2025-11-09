@@ -69,7 +69,8 @@ const fileToVideoFile = (file: File): Promise<VideoFile> =>
 
 const extractVideoFrame = (videoFile: File): Promise<ImageFile> => {
   return new Promise((resolve, reject) => {
-    const video = document.createElement('video');
+    // Fix: Cannot find name 'document'.
+    const video = (window as any).document.createElement('video');
     video.preload = 'metadata';
     video.src = URL.createObjectURL(videoFile);
     video.muted = true;
@@ -84,7 +85,8 @@ const extractVideoFrame = (videoFile: File): Promise<ImageFile> => {
 
     video.onseeked = () => {
       setTimeout(() => {
-        const canvas = document.createElement('canvas');
+        // Fix: Cannot find name 'document'.
+        const canvas = (window as any).document.createElement('canvas');
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
         const ctx = canvas.getContext('2d');
@@ -177,7 +179,8 @@ const ImageUpload: React.FC<{
 }> = ({onSelect, onRemove, image, label}) => {
   const inputRef = useRef<HTMLInputElement>(null);
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+    // Fix: Cast to any to access files property, due to a potential TS configuration issue.
+    const file = (e.target as any).files?.[0];
     if (file) {
       try {
         const imageFile = await fileToImageFile(file);
@@ -188,7 +191,7 @@ const ImageUpload: React.FC<{
     }
     // Reset input value to allow selecting the same file again
     if (inputRef.current) {
-      inputRef.current.value = '';
+      (inputRef.current as any).value = '';
     }
   };
 
@@ -214,7 +217,7 @@ const ImageUpload: React.FC<{
   return (
     <button
       type="button"
-      onClick={() => inputRef.current?.click()}
+      onClick={() => (inputRef.current as any)?.click()}
       className="w-28 h-20 bg-gray-700/50 hover:bg-gray-700 border-2 border-dashed border-gray-600 rounded-lg flex flex-col items-center justify-center text-gray-400 hover:text-white transition-colors">
       <PlusIcon className="w-6 h-6" />
       <span className="text-xs mt-1">{label}</span>
@@ -237,7 +240,8 @@ const VideoUpload: React.FC<{
 }> = ({onSelect, onRemove, video, label}) => {
   const inputRef = useRef<HTMLInputElement>(null);
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+    // Fix: Cast to any to access files property, due to a potential TS configuration issue.
+    const file = (e.target as any).files?.[0];
     if (file) {
       try {
         const videoFile = await fileToVideoFile(file);
@@ -271,7 +275,7 @@ const VideoUpload: React.FC<{
   return (
     <button
       type="button"
-      onClick={() => inputRef.current?.click()}
+      onClick={() => (inputRef.current as any)?.click()}
       className="w-48 h-28 bg-gray-700/50 hover:bg-gray-700 border-2 border-dashed border-gray-600 rounded-lg flex flex-col items-center justify-center text-gray-400 hover:text-white transition-colors text-center">
       <PlusIcon className="w-6 h-6" />
       <span className="text-xs mt-1 px-2">{label}</span>
@@ -385,8 +389,8 @@ const PromptForm: React.FC<PromptFormProps> = ({
   useEffect(() => {
     const textarea = textareaRef.current;
     if (textarea) {
-      textarea.style.height = 'auto';
-      textarea.style.height = `${textarea.scrollHeight}px`;
+      (textarea as any).style.height = 'auto';
+      (textarea as any).style.height = `${(textarea as any).scrollHeight}px`;
     }
   }, [prompt]);
 
@@ -394,13 +398,13 @@ const PromptForm: React.FC<PromptFormProps> = ({
     const handleClickOutside = (event: MouseEvent) => {
       if (
         modeSelectorRef.current &&
-        !modeSelectorRef.current.contains(event.target as Node)
+        !(modeSelectorRef.current as any).contains(event.target as any)
       ) {
         setIsModeSelectorOpen(false);
       }
     };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    (window as any).document.addEventListener('mousedown', handleClickOutside);
+    return () => (window as any).document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
   const handleSubmit = useCallback(
@@ -517,7 +521,8 @@ const PromptForm: React.FC<PromptFormProps> = ({
                 id="loop-video-checkbox"
                 type="checkbox"
                 checked={isLooping}
-                onChange={(e) => setIsLooping(e.target.checked)}
+                // Fix: Cast to any to access checked property, due to a potential TS configuration issue.
+                onChange={(e) => setIsLooping((e.target as any).checked)}
                 className="w-4 h-4 text-indigo-600 bg-gray-700 border-gray-600 rounded focus:ring-indigo-500 focus:ring-offset-gray-800 cursor-pointer"
               />
               <label
@@ -600,7 +605,7 @@ const PromptForm: React.FC<PromptFormProps> = ({
                   setStyleImage(frame);
                 } catch (error) {
                   console.error('Failed to extract frame:', error);
-                  alert(
+                  (window as any).alert(
                     `Failed to extract frame from video: ${error instanceof Error ? error.message : 'Unknown error'}`,
                   );
                 }
@@ -717,7 +722,8 @@ const PromptForm: React.FC<PromptFormProps> = ({
             <CustomSelect
               label="Model"
               value={model}
-              onChange={(e) => setModel(e.target.value as VeoModel)}
+              // Fix: Cast to any to access value property, due to a potential TS configuration issue.
+              onChange={(e) => setModel((e.target as any).value as VeoModel)}
               icon={<SparklesIcon className="w-5 h-5 text-gray-400" />}
               disabled={isRefMode}>
               {Object.values(VeoModel).map((modelValue) => (
@@ -729,7 +735,8 @@ const PromptForm: React.FC<PromptFormProps> = ({
             <CustomSelect
               label="Aspect Ratio"
               value={aspectRatio}
-              onChange={(e) => setAspectRatio(e.target.value as AspectRatio)}
+              // Fix: Cast to any to access value property, due to a potential TS configuration issue.
+              onChange={(e) => setAspectRatio((e.target as any).value as AspectRatio)}
               icon={<RectangleStackIcon className="w-5 h-5 text-gray-400" />}
               disabled={isRefMode || isExtendMode}>
               {Object.entries(aspectRatioDisplayNames).map(([key, name]) => (
@@ -742,7 +749,8 @@ const PromptForm: React.FC<PromptFormProps> = ({
               <CustomSelect
                 label="Resolution"
                 value={resolution}
-                onChange={(e) => setResolution(e.target.value as Resolution)}
+                // Fix: Cast to any to access value property, due to a potential TS configuration issue.
+                onChange={(e) => setResolution((e.target as any).value as Resolution)}
                 icon={<TvIcon className="w-5 h-5 text-gray-400" />}
                 disabled={isRefMode || isExtendMode}>
                 <option value={Resolution.P720}>720p</option>
@@ -771,7 +779,8 @@ const PromptForm: React.FC<PromptFormProps> = ({
               id="start-time"
               type="text"
               value={startTimeStr}
-              onChange={(e) => setStartTimeStr(e.target.value)}
+              // Fix: Cast to any to access value property, due to a potential TS configuration issue.
+              onChange={(e) => setStartTimeStr((e.target as any).value)}
               placeholder="MM:SS"
               className="w-24 bg-[#1f1f1f] border border-gray-600 rounded-md px-2 py-1 text-center font-mono focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
             />
@@ -807,7 +816,8 @@ const PromptForm: React.FC<PromptFormProps> = ({
           <textarea
             ref={textareaRef}
             value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
+            // Fix: Cast to any to access value property, due to a potential TS configuration issue.
+            onChange={(e) => setPrompt((e.target as any).value)}
             placeholder={promptPlaceholder}
             className="flex-grow bg-transparent focus:outline-none resize-none text-base text-gray-200 placeholder-gray-500 max-h-48 py-2"
             rows={1}
