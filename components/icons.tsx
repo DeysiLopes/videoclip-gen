@@ -12,12 +12,14 @@ import {
   CheckCircle2,
   ChevronDown,
   Clock,
+  Download,
   Film,
   Image,
   KeyRound,
   Layers,
   Music,
   Pencil,
+  Play,
   Plus,
   RefreshCw,
   Repeat,
@@ -147,6 +149,11 @@ export const UploadIcon: React.FC<React.SVGProps<any>> = (props) => (
 // Fix: Cannot find name 'SVGSVGElement'.
 export const LoopIcon: React.FC<React.SVGProps<any>> = (props) => (
   <Repeat {...defaultProps} {...props} />
+);
+
+// Fix: Cannot find name 'SVGSVGElement'.
+export const PlayIcon: React.FC<React.SVGProps<any>> = (props) => (
+  <Play {...defaultProps} {...props} />
 );
 
 // Fix: Cannot find name 'SVGSVGElement'.

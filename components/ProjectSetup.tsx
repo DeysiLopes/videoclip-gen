@@ -153,7 +153,7 @@ const StyleUploader: React.FC<{
   };
 
   return (
-    <div className="bg-gray-800/50 p-6 rounded-xl border border-gray-700 flex flex-col sm:flex-row items-center gap-6">
+    <div className="card-modern flex flex-col sm:flex-row items-center gap-6">
       <div className="flex-grow">
         <h3 className="text-lg font-semibold text-white">{label}</h3>
         <p className="text-gray-400 text-sm mt-1">{description}</p>
@@ -167,19 +167,19 @@ const StyleUploader: React.FC<{
               loop
               autoPlay
               playsInline
-              className="w-full h-full object-cover rounded-lg"
+              className="w-full h-full object-cover rounded-xl border-2 border-gray-700 group-hover:border-indigo-500 transition-all"
             />
           ) : (
             <img
               src={styleSourceUrl}
               alt="preview"
-              className="w-full h-full object-cover rounded-lg"
+              className="w-full h-full object-cover rounded-xl border-2 border-gray-700 group-hover:border-indigo-500 transition-all"
             />
           )}
           <button
             type="button"
             onClick={onRemove}
-            className="absolute top-1 right-1 w-6 h-6 bg-black/60 hover:bg-black/80 rounded-full flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity"
+            className="absolute top-2 right-2 w-7 h-7 bg-red-600/90 hover:bg-red-700 rounded-full flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-all transform hover:scale-110 shadow-lg"
             aria-label="Remove file">
             <XMarkIcon className="w-4 h-4" />
           </button>
@@ -189,9 +189,9 @@ const StyleUploader: React.FC<{
           type="button"
           // Fix: Property 'click' does not exist on type 'HTMLInputElement'.
           onClick={() => (inputRef.current as any)?.click()}
-          className="w-32 h-32 bg-gray-700/50 hover:bg-gray-700 border-2 border-dashed border-gray-600 rounded-lg flex flex-col items-center justify-center text-gray-400 hover:text-white transition-colors flex-shrink-0">
-          <UploadIcon className="w-8 h-8" />
-          <span className="text-sm mt-2">Enviar</span>
+          className="w-32 h-32 bg-gray-700/50 hover:bg-gray-700 border-2 border-dashed border-gray-600 rounded-xl flex flex-col items-center justify-center text-gray-400 hover:text-white hover:border-indigo-500 transition-all hover:scale-105 flex-shrink-0">
+          <UploadIcon className="w-10 h-10" />
+          <span className="text-sm mt-2 font-semibold">Enviar</span>
           <input
             type="file"
             ref={inputRef}
@@ -378,12 +378,12 @@ const ProjectSetup: React.FC<ProjectSetupProps> = ({
             <img
                 src={url}
                 alt={`character preview`}
-                className="w-full h-full object-cover rounded-lg"
+                className="w-full h-full object-cover rounded-xl border-2 border-gray-700 group-hover:border-indigo-500 transition-all shadow-lg"
             />
             <button
                 type="button"
                 onClick={onRemove}
-                className="absolute top-1 right-1 w-6 h-6 bg-black/60 hover:bg-black/80 rounded-full flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                className="absolute top-2 right-2 w-7 h-7 bg-red-600/90 hover:bg-red-700 rounded-full flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-all transform hover:scale-110 shadow-lg"
                 aria-label="Remove image">
                 <XMarkIcon className="w-4 h-4" />
             </button>
@@ -394,51 +394,60 @@ const ProjectSetup: React.FC<ProjectSetupProps> = ({
 
   return (
     <div className="flex-grow flex items-start justify-center pt-8">
-      <div className="w-full max-w-3xl space-y-6">
-        <h2 className="text-2xl font-bold text-center text-gray-200">
-          Criar um Novo Projeto de Vídeo
-        </h2>
-        <p className="text-center text-gray-400">
-          Comece configurando os detalhes técnicos e a direção criativa do seu
-          videoclipe.
-        </p>
+      <div className="w-full max-w-3xl space-y-8">
+        <div className="text-center space-y-3">
+          <h2 className="text-4xl font-bold gradient-text">
+            Criar um Novo Projeto de Vídeo
+          </h2>
+          <p className="text-gray-400 text-lg">
+            Comece configurando os detalhes técnicos e a direção criativa do seu videoclipe.
+          </p>
+        </div>
         <form onSubmit={handleSubmit} className="space-y-8">
           {/* Technical Sheet */}
-          <div className="bg-gray-800/50 p-6 rounded-xl border border-gray-700">
-            <h3 className="text-xl font-semibold text-white mb-4">
-              1. Ficha Técnica
-            </h3>
+          <div className="card-modern space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-indigo-600/20 flex items-center justify-center">
+                <span className="text-indigo-400 font-bold text-lg">1</span>
+              </div>
+              <h3 className="text-2xl font-semibold text-white">
+                Ficha Técnica
+              </h3>
+            </div>
             <textarea
               value={technicalSheet}
               onChange={handleTechnicalSheetChange}
-              className="w-full h-72 bg-gray-900/70 border border-gray-600 rounded-lg p-4 font-mono text-sm focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 resize-y"
+              className="w-full h-72 bg-gray-900/70 border border-gray-600 rounded-xl p-4 font-mono text-sm text-gray-200 focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-y transition-all"
               placeholder="Insira suas especificações técnicas para todas as cenas..."
             />
-            <div className="mt-2 text-xs text-gray-500">
-              <p>
+            <div className="mt-3 p-4 bg-gray-900/50 rounded-lg border border-gray-700/50">
+              <p className="text-xs text-gray-400 mb-2">
                 O aplicativo analisará a Resolução e a Proporção de Tela desta ficha.
               </p>
-              <p className="mt-1">
-                Detectado - Resolução:{' '}
-                <span className="text-gray-300 font-semibold">
-                  {resolution}
-                </span>
-                , Proporção de Tela:{' '}
-                <span className="text-gray-300 font-semibold">
-                  {aspectRatio}
-                </span>
-              </p>
+              <div className="flex gap-6">
+                <div className="badge-info">
+                  Resolução: <span className="font-bold ml-1">{resolution}</span>
+                </div>
+                <div className="badge-info">
+                  Proporção: <span className="font-bold ml-1">{aspectRatio}</span>
+                </div>
+              </div>
             </div>
           </div>
 
           {/* Character & Style */}
-          <div className="space-y-4">
-            <h3 className="text-xl font-semibold text-white text-center">
-              2. Personagem e Estilo (Opcional)
-            </h3>
-            <div className="bg-gray-800/50 p-6 rounded-xl border border-gray-700">
+          <div className="space-y-6">
+            <div className="flex items-center gap-3 justify-center">
+              <div className="w-10 h-10 rounded-full bg-purple-600/20 flex items-center justify-center">
+                <span className="text-purple-400 font-bold text-lg">2</span>
+              </div>
+              <h3 className="text-2xl font-semibold text-white">
+                Personagem e Estilo (Opcional)
+              </h3>
+            </div>
+            <div className="card-modern space-y-4">
                 <h3 className="text-lg font-semibold text-white">Personagem Principal</h3>
-                <p className="text-gray-400 text-sm mt-1">Envie até 5 imagens do personagem principal para melhor semelhança.</p>
+                <p className="text-gray-400 text-sm">Envie até 5 imagens do personagem principal para melhor semelhança.</p>
                 <div className="mt-4 flex flex-wrap items-center gap-4">
                     {characterImages.map((image, index) => (
                         <CharacterImagePreview 
@@ -452,9 +461,9 @@ const ProjectSetup: React.FC<ProjectSetupProps> = ({
                             type="button"
                             // Fix: Property 'click' does not exist on type 'HTMLInputElement'.
                             onClick={() => (characterImageInputRef.current as any)?.click()}
-                            className="w-24 h-24 bg-gray-700/50 hover:bg-gray-700 border-2 border-dashed border-gray-600 rounded-lg flex flex-col items-center justify-center text-gray-400 hover:text-white transition-colors flex-shrink-0">
+                            className="w-24 h-24 bg-gray-700/50 hover:bg-gray-700 border-2 border-dashed border-gray-600 rounded-lg flex flex-col items-center justify-center text-gray-400 hover:text-white transition-all hover:border-indigo-500 hover:scale-105 flex-shrink-0">
                             <UploadIcon className="w-8 h-8" />
-                            <span className="text-xs mt-2">Enviar ({characterImages.length}/5)</span>
+                            <span className="text-xs mt-2 font-semibold">Enviar ({characterImages.length}/5)</span>
                             <input
                                 type="file"
                                 ref={characterImageInputRef}
@@ -477,10 +486,15 @@ const ProjectSetup: React.FC<ProjectSetupProps> = ({
           </div>
 
           {/* Audio */}
-          <div>
-            <h3 className="text-xl font-semibold text-white text-center mb-4">
-              3. Faixa de Música
-            </h3>
+          <div className="space-y-6">
+            <div className="flex items-center gap-3 justify-center">
+              <div className="w-10 h-10 rounded-full bg-pink-600/20 flex items-center justify-center">
+                <span className="text-pink-400 font-bold text-lg">3</span>
+              </div>
+              <h3 className="text-2xl font-semibold text-white">
+                Faixa de Música
+              </h3>
+            </div>
             <AudioTrackManager
               audioFile={audioFile}
               audioUrl={audioUrl}
@@ -489,16 +503,16 @@ const ProjectSetup: React.FC<ProjectSetupProps> = ({
             />
           </div>
 
-          <div className="text-center pt-4">
+          <div className="text-center pt-6">
             <button
               type="submit"
               disabled={!audioFile}
-              className="w-full max-w-md px-8 py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg transition-colors text-lg inline-flex items-center justify-center gap-2 disabled:bg-gray-600 disabled:cursor-not-allowed">
+              className="btn-primary w-full max-w-md text-lg inline-flex items-center justify-center gap-3">
               Começar a Construir Cenas
-              <ArrowRightIcon className="w-5 h-5" />
+              <ArrowRightIcon className="w-6 h-6" />
             </button>
             {!audioFile && (
-              <p className="text-gray-400 text-sm mt-2">
+              <p className="text-gray-400 text-sm mt-3 animate-pulse">
                 Por favor, envie uma faixa de áudio para continuar.
               </p>
             )}

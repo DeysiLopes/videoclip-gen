@@ -48,28 +48,40 @@ const StorageMonitor: React.FC = () => {
   const availableMB = (storageInfo.available / (1024 * 1024)).toFixed(0);
 
   return (
-    <div className="fixed bottom-4 right-4 bg-gray-800/95 border border-gray-700 rounded-lg p-3 shadow-xl z-50 max-w-xs">
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-xs font-semibold text-gray-300">Armazenamento</span>
-        <span className="text-xs text-gray-400">{usageMB} / {quotaMB} MB</span>
+    <div className="fixed bottom-6 right-6 bg-gray-900/95 backdrop-blur-md border border-gray-700/50 rounded-2xl p-4 shadow-2xl z-50 max-w-xs transition-all hover:shadow-indigo-500/20">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <div className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse"></div>
+          <span className="text-sm font-bold text-white">Armazenamento</span>
+        </div>
+        <span className="text-xs text-gray-400 font-mono">{usageMB} / {quotaMB} MB</span>
       </div>
       
-      <div className="w-full bg-gray-700 rounded-full h-2 overflow-hidden mb-2">
+      <div className="w-full bg-gray-800 rounded-full h-3 overflow-hidden mb-2 shadow-inner">
         <div
-          className={`h-2 rounded-full transition-all ${
+          className={`h-3 rounded-full transition-all duration-500 ${
             usagePercent > 90
-              ? 'bg-red-500'
+              ? 'bg-gradient-to-r from-red-500 to-red-600 shadow-lg shadow-red-500/50'
               : usagePercent > 70
-              ? 'bg-yellow-500'
-              : 'bg-green-500'
+              ? 'bg-gradient-to-r from-yellow-500 to-yellow-600 shadow-lg shadow-yellow-500/50'
+              : 'bg-gradient-to-r from-green-500 to-green-600 shadow-lg shadow-green-500/50'
           }`}
           style={{ width: `${Math.min(usagePercent, 100)}%` }}
         ></div>
       </div>
       
       {showWarning && (
-        <p className="text-xs text-yellow-400 mt-1">
-          ⚠️ Pouco espaço disponível ({availableMB} MB). Considere deletar cenas antigas.
+        <div className="mt-3 p-2 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
+          <p className="text-xs text-yellow-400 flex items-center gap-2">
+            <span className="text-lg">⚠️</span>
+            <span>Pouco espaço disponível ({availableMB} MB). Considere deletar cenas antigas.</span>
+          </p>
+        </div>
+      )}
+
+      {!showWarning && (
+        <p className="text-xs text-gray-500 text-center mt-2">
+          {availableMB} MB disponíveis
         </p>
       )}
     </div>

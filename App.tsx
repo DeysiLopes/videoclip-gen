@@ -28,23 +28,29 @@ const Stepper: React.FC<{currentMode: AppMode}> = ({currentMode}) => {
   const steps = [AppMode.SETUP, AppMode.STORYBOARD, AppMode.FINAL_CUT];
   const currentIndex = steps.indexOf(currentMode);
 
+  const stepLabels: Record<AppMode, string> = {
+    [AppMode.SETUP]: 'Configuração',
+    [AppMode.STORYBOARD]: 'Storyboard',
+    [AppMode.FINAL_CUT]: 'Corte Final',
+  };
+
   return (
-    <nav aria-label="Progress">
-      <ol role="list" className="flex items-center">
+    <nav aria-label="Progress" className="w-full max-w-2xl">
+      <ol role="list" className="flex items-center justify-between">
         {steps.map((step, stepIdx) => (
           <li
             key={step}
-            className={`relative ${stepIdx !== steps.length - 1 ? 'pr-16 sm:pr-20' : ''}`}>
+            className={`relative flex-1 ${stepIdx !== steps.length - 1 ? 'pr-8 sm:pr-16' : ''}`}>
             {stepIdx < currentIndex ? (
               <>
                 <div
-                  className="absolute inset-0 flex items-center"
+                  className="absolute inset-0 flex items-center top-4"
                   aria-hidden="true">
-                  <div className="h-0.5 w-full bg-indigo-600" />
+                  <div className="h-1 w-full bg-gradient-to-r from-indigo-600 to-purple-600 shadow-lg shadow-indigo-500/50" />
                 </div>
-                <div className="relative flex h-8 w-8 items-center justify-center bg-indigo-600 rounded-full">
+                <div className="relative flex h-10 w-10 items-center justify-center bg-gradient-to-br from-indigo-600 to-purple-600 rounded-full shadow-xl shadow-indigo-500/50 transform transition-transform hover:scale-110">
                   <svg
-                    className="h-5 w-5 text-white"
+                    className="h-6 w-6 text-white"
                     viewBox="0 0 20 20"
                     fill="currentColor"
                     aria-hidden="true">
@@ -55,34 +61,37 @@ const Stepper: React.FC<{currentMode: AppMode}> = ({currentMode}) => {
                     />
                   </svg>
                 </div>
-                <span className="absolute -bottom-8 left-4 -translate-x-1/2 w-16 text-xs text-center text-indigo-400 font-semibold">
-                  {step}
+                <span className="absolute -bottom-8 left-5 -translate-x-1/2 w-24 text-xs text-center text-indigo-400 font-semibold whitespace-nowrap">
+                  {stepLabels[step]}
                 </span>
               </>
             ) : stepIdx === currentIndex ? (
               <>
                 <div
-                  className="absolute inset-0 flex items-center"
+                  className="absolute inset-0 flex items-center top-4"
                   aria-hidden="true">
-                  <div className="h-0.5 w-full bg-gray-700" />
+                  <div className="h-1 w-full bg-gray-700/50" />
                 </div>
-                <div className="relative flex h-8 w-8 items-center justify-center bg-gray-800 border-2 border-indigo-600 rounded-full">
-                  <span className="h-2.5 w-2.5 bg-indigo-600 rounded-full" />
+                <div className="relative flex h-10 w-10 items-center justify-center bg-gray-900 border-2 border-indigo-500 rounded-full shadow-2xl shadow-indigo-500/70 animate-pulse-glow">
+                  <span className="h-3 w-3 bg-indigo-500 rounded-full animate-ping absolute" />
+                  <span className="h-3 w-3 bg-indigo-500 rounded-full" />
                 </div>
-                <span className="absolute -bottom-8 left-4 -translate-x-1/2 w-16 text-xs text-center text-white font-semibold">
-                  {step}
+                <span className="absolute -bottom-8 left-5 -translate-x-1/2 w-24 text-xs text-center text-white font-bold whitespace-nowrap">
+                  {stepLabels[step]}
                 </span>
               </>
             ) : (
               <>
                 <div
-                  className="absolute inset-0 flex items-center"
+                  className="absolute inset-0 flex items-center top-4"
                   aria-hidden="true">
-                  <div className="h-0.5 w-full bg-gray-700" />
+                  <div className="h-1 w-full bg-gray-800/50" />
                 </div>
-                <div className="relative flex h-8 w-8 items-center justify-center bg-gray-800 border-2 border-gray-600 rounded-full" />
-                <span className="absolute -bottom-8 left-4 -translate-x-1/2 w-16 text-xs text-center text-gray-500">
-                  {step}
+                <div className="relative flex h-10 w-10 items-center justify-center bg-gray-900 border-2 border-gray-700 rounded-full transition-all hover:border-gray-600">
+                  <span className="h-2 w-2 bg-gray-700 rounded-full" />
+                </div>
+                <span className="absolute -bottom-8 left-5 -translate-x-1/2 w-24 text-xs text-center text-gray-500 font-medium whitespace-nowrap">
+                  {stepLabels[step]}
                 </span>
               </>
             )}
@@ -130,6 +139,7 @@ const App: React.FC = () => {
   const [scenes, setScenes] = useState<Scene[]>([]);
   const [showApiKeyDialog, setShowApiKeyDialog] = useState(false);
   const [showLocalApiKeyDialog, setShowLocalApiKeyDialog] = useState(false);
+  const [showDemoShowcase, setShowDemoShowcase] = useState(false);
   const [localApiKey, setLocalApiKey] = useState<string | null>(null);
   const [requestCount, setRequestCount] = useState(0);
   const [isDbReady, setIsDbReady] = useState(false);
@@ -611,13 +621,13 @@ const App: React.FC = () => {
       {showLocalApiKeyDialog && (
         <LocalApiKeyDialog onSave={handleLocalApiKeySave} />
       )}
-      <header className="py-6 flex flex-col justify-center items-center px-8 relative z-10 shrink-0 gap-8">
-        <h1 className="text-5xl font-semibold tracking-wide text-center bg-gradient-to-r from-indigo-400 via-purple-500 to-pink-500 bg-clip-text text-transparent">
+      <header className="py-8 flex flex-col justify-center items-center px-8 relative z-10 shrink-0 gap-10 bg-gradient-to-b from-gray-900/50 to-transparent border-b border-gray-800/50 backdrop-blur-sm">
+        <h1 className="text-6xl font-bold tracking-wide text-center bg-gradient-to-r from-indigo-400 via-purple-500 to-pink-500 bg-clip-text text-transparent drop-shadow-2xl animate-pulse-glow">
           DreamDirector AI
         </h1>
         <Stepper currentMode={appMode} />
       </header>
-      <main className="w-full max-w-6xl mx-auto flex-grow flex flex-col p-2 sm:p-4 overflow-y-auto">
+      <main className="w-full max-w-6xl mx-auto flex-grow flex flex-col p-4 sm:p-6 overflow-y-auto">
         {renderContent()}
       </main>
       <StorageMonitor />
