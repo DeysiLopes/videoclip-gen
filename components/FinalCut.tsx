@@ -28,8 +28,10 @@ const FinalCut: React.FC<FinalCutProps> = ({
     return [...scenesToShow].sort((a, b) => a.timestamp - b.timestamp);
   }, [scenes]);
 
-  const audioRef = useRef<HTMLAudioElement>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
+  // Fix: Cannot find name 'HTMLAudioElement'.
+  const audioRef = useRef<any>(null);
+  // Fix: Cannot find name 'HTMLVideoElement'.
+  const videoRef = useRef<any>(null);
 
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);

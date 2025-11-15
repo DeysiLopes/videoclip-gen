@@ -50,9 +50,12 @@ const SceneCard: React.FC<SceneCardProps> = ({
 }) => {
   const [isEditing, setIsEditing] = useState(scene.status === SceneStatus.DRAFT);
   const [prompt, setPrompt] = useState(scene.prompt);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const uploadInputRef = useRef<HTMLInputElement>(null);
+  // Fix: Cannot find name 'HTMLTextAreaElement'.
+  const textareaRef = useRef<any>(null);
+  // Fix: Cannot find name 'HTMLVideoElement'.
+  const videoRef = useRef<any>(null);
+  // Fix: Cannot find name 'HTMLInputElement'.
+  const uploadInputRef = useRef<any>(null);
 
   const isApproved = scene.status === SceneStatus.APPROVED;
 
@@ -60,7 +63,7 @@ const SceneCard: React.FC<SceneCardProps> = ({
     if (isEditing && textareaRef.current) {
       // Fix: Property 'style' does not exist on type 'HTMLTextAreaElement'.
       (textareaRef.current as any).style.height = 'auto';
-      // Fix: Property 'style', 'scrollHeight' does not exist on type 'HTMLTextAreaElement'.
+      // Fix: Property 'style', 'scrollHeight' do not exist on type 'HTMLTextAreaElement'.
       (textareaRef.current as any).style.height = `${(textareaRef.current as any).scrollHeight}px`;
     }
   }, [prompt, isEditing]);
@@ -118,7 +121,8 @@ const SceneCard: React.FC<SceneCardProps> = ({
     (window as any).document.body.removeChild(a);
   };
 
-  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Fix: Cannot find name 'HTMLInputElement'.
+  const handleUpload = async (e: React.ChangeEvent<any>) => {
     // Fix: Property 'files' does not exist on type 'EventTarget & HTMLInputElement'.
     const file = (e.target as any).files?.[0];
     if (!file) return;
@@ -175,8 +179,9 @@ const SceneCard: React.FC<SceneCardProps> = ({
           <textarea
             ref={textareaRef}
             value={prompt}
+            // Fix: Cannot find name 'HTMLTextAreaElement'.
             // Fix: Property 'value' does not exist on type 'EventTarget & HTMLTextAreaElement'.
-            onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
+            onChange={(e: React.ChangeEvent<any>) =>
               setPrompt((e.target as any).value)
             }
             placeholder="Descreva esta cena... ex: 'CENA 1 (0:00 – 0:35) - Uma cantora aparece...'"

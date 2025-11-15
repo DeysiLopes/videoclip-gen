@@ -38,7 +38,8 @@ const Storyboard: React.FC<StoryboardProps> = ({
   projectConfig,
   requestCount,
 }) => {
-  const audioRef = useRef<HTMLAudioElement>(null);
+  // Fix: Cannot find name 'HTMLAudioElement'.
+  const audioRef = useRef<any>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);

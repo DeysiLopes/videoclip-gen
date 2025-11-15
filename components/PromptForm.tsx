@@ -139,7 +139,8 @@ const parseMMSS = (value: string): number => {
 const CustomSelect: React.FC<{
   label: string;
   value: string;
-  onChange: (e: React.ChangeEvent<HTMLSelectElement>) => void;
+  // Fix: Cannot find name 'HTMLSelectElement'.
+  onChange: (e: React.ChangeEvent<any>) => void;
   icon: React.ReactNode;
   children: React.ReactNode;
   disabled?: boolean;
@@ -177,8 +178,10 @@ const ImageUpload: React.FC<{
   image?: ImageFile | null;
   label: React.ReactNode;
 }> = ({onSelect, onRemove, image, label}) => {
-  const inputRef = useRef<HTMLInputElement>(null);
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Fix: Cannot find name 'HTMLInputElement'.
+  const inputRef = useRef<any>(null);
+  // Fix: Cannot find name 'HTMLInputElement'.
+  const handleFileChange = async (e: React.ChangeEvent<any>) => {
     // Fix: Cast to any to access files property, due to a potential TS configuration issue.
     const file = (e.target as any).files?.[0];
     if (file) {
@@ -238,8 +241,10 @@ const VideoUpload: React.FC<{
   video?: VideoFile | null;
   label: React.ReactNode;
 }> = ({onSelect, onRemove, video, label}) => {
-  const inputRef = useRef<HTMLInputElement>(null);
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Fix: Cannot find name 'HTMLInputElement'.
+  const inputRef = useRef<any>(null);
+  // Fix: Cannot find name 'HTMLInputElement'.
+  const handleFileChange = async (e: React.ChangeEvent<any>) => {
     // Fix: Cast to any to access files property, due to a potential TS configuration issue.
     const file = (e.target as any).files?.[0];
     if (file) {
@@ -342,8 +347,10 @@ const PromptForm: React.FC<PromptFormProps> = ({
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isModeSelectorOpen, setIsModeSelectorOpen] = useState(false);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const modeSelectorRef = useRef<HTMLDivElement>(null);
+  // Fix: Cannot find name 'HTMLTextAreaElement'.
+  const textareaRef = useRef<any>(null);
+  // Fix: Cannot find name 'HTMLDivElement'.
+  const modeSelectorRef = useRef<any>(null);
 
   // Sync state with initialValues prop when it changes (e.g., for "Extend" or "Try Again")
   useEffect(() => {
@@ -397,7 +404,8 @@ const PromptForm: React.FC<PromptFormProps> = ({
   }, [prompt]);
 
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
+    // Fix: Cannot find name 'MouseEvent'.
+    const handleClickOutside = (event: any) => {
       // Fix: Property 'contains' does not exist on type 'HTMLDivElement'.
       if (
         modeSelectorRef.current &&

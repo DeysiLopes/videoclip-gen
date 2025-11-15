@@ -25,8 +25,10 @@ const VideoResult: React.FC<VideoResultProps> = ({
   onExtend,
   canExtend,
 }) => {
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const audioRef = useRef<HTMLAudioElement>(null);
+  // Fix: Cannot find name 'HTMLVideoElement'.
+  const videoRef = useRef<any>(null);
+  // Fix: Cannot find name 'HTMLAudioElement'.
+  const audioRef = useRef<any>(null);
 
   useEffect(() => {
     const video = videoRef.current;

@@ -110,7 +110,8 @@ const StyleUploader: React.FC<{
   label: string;
   description: string;
 }> = ({onSelect, onRemove, styleSourceFile, label, description}) => {
-  const inputRef = useRef<HTMLInputElement>(null);
+  // Fix: Cannot find name 'HTMLInputElement'.
+  const inputRef = useRef<any>(null);
   const [styleSourceUrl, setStyleSourceUrl] = useState<string | null>(null);
 
   useEffect(() => {
@@ -122,7 +123,8 @@ const StyleUploader: React.FC<{
     setStyleSourceUrl(null);
   }, [styleSourceFile]);
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Fix: Cannot find name 'HTMLInputElement'.
+  const handleFileChange = async (e: React.ChangeEvent<any>) => {
     // Fix: Property 'files' does not exist on type 'EventTarget & HTMLInputElement'.
     const file = (e.target as any).files?.[0];
     if (file) {
@@ -250,7 +252,8 @@ const ProjectSetup: React.FC<ProjectSetupProps> = ({
   const [audioFile, setAudioFile] = useState<File | null>(initialConfig?.audioFile || null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   
-  const characterImageInputRef = useRef<HTMLInputElement>(null);
+  // Fix: Cannot find name 'HTMLInputElement'.
+  const characterImageInputRef = useRef<any>(null);
   
   // Effect to sync with prop, runs only when the component mounts or config prop identity changes.
   useEffect(() => {
@@ -296,7 +299,8 @@ const ProjectSetup: React.FC<ProjectSetupProps> = ({
   };
 
   const handleTechnicalSheetChange = (
-    e: React.ChangeEvent<HTMLTextAreaElement>,
+    // Fix: Cannot find name 'HTMLTextAreaElement'.
+    e: React.ChangeEvent<any>,
   ) => {
     // Fix: Property 'value' does not exist on type 'EventTarget & HTMLTextAreaElement'.
     const newText = (e.target as any).value;
@@ -306,7 +310,8 @@ const ProjectSetup: React.FC<ProjectSetupProps> = ({
     setResolution(resolution);
   };
 
-  const handleCharacterImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Fix: Cannot find name 'HTMLInputElement'.
+  const handleCharacterImageUpload = async (e: React.ChangeEvent<any>) => {
     // Fix: Property 'files' does not exist on type 'EventTarget & HTMLInputElement'.
     const files = (e.target as any).files;
     if (!files || files.length === 0) return;

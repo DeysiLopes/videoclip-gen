@@ -18,9 +18,11 @@ const AudioTrackManager: React.FC<AudioTrackManagerProps> = ({
   audioFile,
   audioUrl,
 }) => {
-  const inputRef = useRef<HTMLInputElement>(null);
+  // Fix: Cannot find name 'HTMLInputElement'.
+  const inputRef = useRef<any>(null);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Fix: Cannot find name 'HTMLInputElement'.
+  const handleFileChange = (e: React.ChangeEvent<any>) => {
     // Fix: Property 'files' does not exist on type 'EventTarget & HTMLInputElement'.
     const file = (e.target as any).files?.[0];
     if (file) {

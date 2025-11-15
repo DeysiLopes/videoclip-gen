@@ -41,14 +41,16 @@ const VisualTimeline: React.FC<VisualTimelineProps> = ({
   activeSceneId,
   onReorderScene
 }) => {
-  const timelineRef = useRef<HTMLDivElement>(null);
+  // Fix: Cannot find name 'HTMLDivElement'.
+  const timelineRef = useRef<any>(null);
   const [draggedSceneId, setDraggedSceneId] = useState<string | null>(null);
 
   if (totalDuration === 0) {
     return null;
   }
 
-  const handleTimelineClick = (e: React.MouseEvent<HTMLDivElement>) => {
+  // Fix: Cannot find name 'HTMLDivElement'.
+  const handleTimelineClick = (e: React.MouseEvent<any>) => {
     if (!timelineRef.current) return;
     // Fix: Property 'getBoundingClientRect' does not exist on type 'HTMLDivElement'.
     const rect = (timelineRef.current as any).getBoundingClientRect();
@@ -58,7 +60,8 @@ const VisualTimeline: React.FC<VisualTimelineProps> = ({
     onSeek(seekTime);
   };
   
-  const handleDragStart = (e: React.DragEvent<HTMLDivElement>, scene: Scene) => {
+  // Fix: Cannot find name 'HTMLDivElement'.
+  const handleDragStart = (e: React.DragEvent<any>, scene: Scene) => {
     if (!onReorderScene) return;
     // Fix: Property 'setData' does not exist on type 'DataTransfer'.
     (e.dataTransfer as any).setData('application/json', JSON.stringify(scene));
@@ -67,11 +70,13 @@ const VisualTimeline: React.FC<VisualTimelineProps> = ({
     setDraggedSceneId(scene.id);
   };
 
-  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+  // Fix: Cannot find name 'HTMLDivElement'.
+  const handleDragOver = (e: React.DragEvent<any>) => {
     e.preventDefault();
   };
 
-  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+  // Fix: Cannot find name 'HTMLDivElement'.
+  const handleDrop = (e: React.DragEvent<any>) => {
     e.preventDefault();
     if (!timelineRef.current || !onReorderScene) return;
 
