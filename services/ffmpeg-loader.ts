@@ -10,8 +10,7 @@ let ffmpegSingleton: FFmpeg | null = null;
 export async function getFFmpeg() {
   if (ffmpegSingleton?.loaded) return ffmpegSingleton;
 
-  console.log('[FFmpeg Debug] Cross-origin isolation:',
-    (globalThis as any).crossOriginIsolated ? 'true' : 'false');
+  console.log('[FFmpeg Debug] Initializing multi-threaded FFmpeg.');
 
   const ffmpeg = new FFmpeg();
 
@@ -20,16 +19,18 @@ export async function getFFmpeg() {
   });
 
   try {
-    console.log('[FFmpeg Debug] Loading core from CDN...');
+    console.log('[FFmpeg Debug] Loading multi-threaded core from CDN...');
+    // Use the multi-threaded version (@ffmpeg/core-mt) for better performance.
+    // This requires a cross-origin isolated environment, enabled by coi-serviceworker.js.
     const baseURL = 'https://unpkg.com/@ffmpeg/core-mt@0.12.6/dist/esm';
 
-    console.log('[FFmpeg Debug] Tentando carregar com toBlobURL...');
+    console.log('[FFmpeg Debug] Attempting to load with toBlobURL...');
     try {
       const coreURL = await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript');
       const wasmURL = await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm');
       const workerURL = await toBlobURL(`${baseURL}/ffmpeg-core.worker.js`, 'text/javascript');
-
-      console.log('[FFmpeg Debug] URLs preparadas com toBlobURL, iniciando load...');
+      
+      console.log('[FFmpeg Debug] URLs prepared with toBlobURL, initiating load...');
 
       await ffmpeg.load({
         coreURL,
@@ -37,27 +38,27 @@ export async function getFFmpeg() {
         workerURL,
       });
 
-      console.log('[FFmpeg Debug] FFmpeg core loaded successfully com toBlobURL.');
+      console.log('[FFmpeg Debug] FFmpeg core loaded successfully with toBlobURL.');
     } catch (blobError) {
-      console.warn('[FFmpeg Debug] toBlobURL falhou:', blobError);
-      console.log('[FFmpeg Debug] Tentando carregar URLs diretas do CDN...');
+      console.warn('[FFmpeg Debug] toBlobURL failed:', blobError);
+      console.log('[FFmpeg Debug] Attempting to load direct URLs from CDN...');
 
-      // Fallback: carregar direto do CDN sem toBlobURL
+      // Fallback: load directly from CDN without toBlobURL
       await ffmpeg.load({
         coreURL: `${baseURL}/ffmpeg-core.js`,
         wasmURL: `${baseURL}/ffmpeg-core.wasm`,
         workerURL: `${baseURL}/ffmpeg-core.worker.js`,
       });
 
-      console.log('[FFmpeg Debug] FFmpeg core loaded successfully com URLs diretas.');
+      console.log('[FFmpeg Debug] FFmpeg core loaded successfully with direct URLs.');
     }
   } catch (e) {
     console.error('[FFmpeg Debug] FFmpeg core loading failed.', e);
     ffmpegSingleton = null;
-    throw new Error(`Falha ao carregar FFmpeg: ${e instanceof Error ? e.message : 'Erro desconhecido'}`);
+    throw new Error(`Failed to load FFmpeg: ${e instanceof Error ? e.message : 'Unknown error'}`);
   }
   
   ffmpegSingleton = ffmpeg;
-  console.log('[FFmpeg Debug] FFmpeg singleton criado e pronto.');
+  console.log('[FFmpeg Debug] FFmpeg singleton created and ready.');
   return ffmpeg;
 }
