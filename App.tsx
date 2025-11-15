@@ -410,14 +410,14 @@ const App: React.FC = () => {
         }
       }
 
+      const isExtending = !!previousVideo;
       const hasReferences =
         projectConfig.characterImages.length > 0 ||
         projectConfig.styleImages.length > 0;
-      const isExtending = !!previousVideo;
       const useVeoHighQuality = hasReferences || isExtending;
 
       const characterInstruction =
-        projectConfig.characterImages.length > 0
+        !isExtending && projectConfig.characterImages.length > 0
           ? `CRITICAL INSTRUCTION: For the main character, prioritize the likeness and face from the provided reference images ONLY. For all other attributes (costume, environment, etc.), strictly follow the Technical Sheet and Scene Description.`
           : '';
 
@@ -465,8 +465,8 @@ const App: React.FC = () => {
           ? Resolution.P720
           : projectConfig.resolution,
         durationSeconds: durationForApi,
-        referenceImages: projectConfig.characterImages,
-        styleImage: projectConfig.styleImages[0] ?? null,
+        referenceImages: isExtending ? undefined : projectConfig.characterImages,
+        styleImage: isExtending ? null : projectConfig.styleImages[0] ?? null,
         inputVideo: previousVideo,
       };
 
@@ -500,6 +500,8 @@ const App: React.FC = () => {
             errorMessage =
               apiError?.error?.message ??
               'Quota exceeded. Please check your plan and billing details.';
+          } else if (apiError?.error?.code === 400) {
+            errorMessage = `API Error: ${apiError?.error?.message ?? 'Invalid request.'}`;
           }
         } catch (e) {
           // Not a JSON error, keep original message

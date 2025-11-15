@@ -303,15 +303,31 @@ const ProjectSetup: React.FC<ProjectSetupProps> = ({
   };
 
   const handleCharacterImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = (e.target as any).files?.[0];
-    if (file && characterImages.length < 5) {
-        try {
-            const imageFile = await fileToImageFile(file);
-            setCharacterImages(prev => [...prev, imageFile]);
-        } catch (error) {
-            console.error('Error converting file:', error);
-        }
+    const files = (e.target as any).files;
+    if (!files || files.length === 0) return;
+
+    const currentImageCount = characterImages.length;
+    const slotsAvailable = 5 - currentImageCount;
+
+    if (slotsAvailable <= 0) {
+      (window as any).alert('Você já atingiu o limite de 5 imagens.');
+      return;
     }
+
+    const filesToProcess = Array.from(files).slice(0, slotsAvailable) as File[];
+    
+    if (files.length > slotsAvailable) {
+        (window as any).alert(`Limite de 5 imagens excedido. Apenas as primeiras ${slotsAvailable} imagens serão adicionadas.`);
+    }
+
+    try {
+        const newImageFiles = await Promise.all(filesToProcess.map(fileToImageFile));
+        setCharacterImages(prev => [...prev, ...newImageFiles]);
+    } catch (error) {
+        console.error('Error converting files:', error);
+        (window as any).alert('Houve um erro ao processar uma ou mais imagens.');
+    }
+
     if (characterImageInputRef.current) {
         (characterImageInputRef.current as any).value = '';
     }
@@ -433,6 +449,7 @@ const ProjectSetup: React.FC<ProjectSetupProps> = ({
                                 onChange={handleCharacterImageUpload}
                                 accept="image/*"
                                 className="hidden"
+                                multiple
                             />
                         </button>
                     )}

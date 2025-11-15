@@ -2,7 +2,7 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
 */
-import React, {useCallback, useEffect, useRef, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {getFFmpeg} from '../services/ffmpeg-loader';
 import {ProjectConfig, Scene, SceneStatus} from '../types';
 import RenderProgressDialog from './RenderProgressDialog';
@@ -20,10 +20,13 @@ const FinalCut: React.FC<FinalCutProps> = ({
   onBack,
 }) => {
   const {audioUrl} = projectConfig;
-  const scenesToShow = scenes.filter(
-    (s) => s.status === SceneStatus.APPROVED || s.status === SceneStatus.GENERATED,
-  );
-  const sortedScenes = [...scenesToShow].sort((a, b) => a.timestamp - b.timestamp);
+  
+  const sortedScenes = useMemo(() => {
+    const scenesToShow = scenes.filter(
+      (s) => s.status === SceneStatus.APPROVED || s.status === SceneStatus.GENERATED,
+    );
+    return [...scenesToShow].sort((a, b) => a.timestamp - b.timestamp);
+  }, [scenes]);
 
   const audioRef = useRef<HTMLAudioElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
