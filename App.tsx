@@ -145,6 +145,24 @@ const App: React.FC = () => {
     };
   }, [projectConfig?.audioUrl]);
 
+  // This effect ensures that if projectConfig has an audioFile, it always has a valid audioUrl.
+  // This guards against any state update that might accidentally drop the audioUrl,
+  // fixing the bug where the timeline would disappear.
+  useEffect(() => {
+    if (projectConfig && projectConfig.audioFile && !projectConfig.audioUrl) {
+      console.warn("Project config is missing audioUrl, creating it now to fix timeline visibility.");
+      const url = URL.createObjectURL(projectConfig.audioFile);
+      objectUrls.current.add(url);
+      
+      // Use functional update to avoid stale state issues, and create a new object
+      // to ensure React detects the state change.
+      setProjectConfig(prevConfig => ({
+        ...prevConfig!,
+        audioUrl: url,
+      }));
+    }
+  }, [projectConfig]);
+
   useEffect(() => {
     const initializeApp = async () => {
       // 1. Check API Key
