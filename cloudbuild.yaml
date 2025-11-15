@@ -1,0 +1,41 @@
+# cloudbuild.yaml
+# This file defines the Continuous Integration/Deployment (CI/CD) pipeline for Google Cloud Build.
+
+steps:
+  # Step 1: Build the Docker container image.
+  # This command uses the Dockerfile in the current directory to build an image.
+  # The image is tagged with the location of your Artifact Registry, your project ID, and a name.
+  # $PROJECT_ID is a substitution variable automatically provided by Cloud Build.
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-t', 'us-central1-docker.pkg.dev/$PROJECT_ID/dreamdirector-repo/dreamdirector-ai:latest', '.']
+    id: 'Build'
+
+  # Step 2: Push the container image to Google Artifact Registry.
+  # Artifact Registry is the recommended place to store your container images in GCP.
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'us-central1-docker.pkg.dev/$PROJECT_ID/dreamdirector-repo/dreamdirector-ai:latest']
+    id: 'Push'
+
+  # Step 3: Deploy the container image to Google Cloud Run.
+  # Cloud Run is a serverless platform that automatically scales your container.
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'dreamdirector-ai' # This will be the name of your service in Cloud Run.
+      - '--image=us-central1-docker.pkg.dev/$PROJECT_ID/dreamdirector-repo/dreamdirector-ai:latest' # The image to deploy.
+      - '--region=us-central1'   # The region to deploy the service to. Change if needed.
+      - '--platform=managed'     # Use the fully-managed Cloud Run environment.
+      - '--allow-unauthenticated' # Make the service publicly accessible.
+    id: 'Deploy'
+
+# Store the name of the pushed image for potential use in other build steps or for build summary.
+images:
+  - 'us-central1-docker.pkg.dev/$PROJECT_ID/dreamdirector-repo/dreamdirector-ai:latest'
+
+# Configuration options for the build itself.
+options:
+  # This is the critical fix for the error you encountered.
+  # It tells Cloud Build to send logs directly to Cloud Logging instead of a storage bucket.
+  logging: CLOUD_LOGGING_ONLY
