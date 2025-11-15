@@ -104,6 +104,16 @@ const FinalCut: React.FC<FinalCutProps> = ({
       }
   }, [url]);
 
+  const triggerDownload = (downloadUrl: string, filename: string) => {
+    if (!downloadUrl) return;
+    const a = (window as any).document.createElement('a');
+    a.href = downloadUrl;
+    a.download = filename;
+    (window as any).document.body.appendChild(a);
+    a.click();
+    (window as any).document.body.removeChild(a);
+  };
+
   const handleRender = async () => {
     setErr(null);
     setUrl(null);
@@ -398,13 +408,15 @@ const FinalCut: React.FC<FinalCutProps> = ({
         setCurrentPhase('finalizing');
         await ffmpeg.exec(args);
         
-        // 4. Read output and create URL
+        // 4. Read output, create URL, and trigger download
         const data = await ffmpeg.readFile('preview.mp4');
         const blob = new Blob([data], { type: 'video/mp4' });
-        setUrl(URL.createObjectURL(blob));
+        const objectUrl = URL.createObjectURL(blob);
+        setUrl(objectUrl);
         setPhase('done');
         setRenderProgress(100);
-        console.log('[FFmpeg Preview] Amostra renderizada com sucesso!');
+        console.log('[FFmpeg Preview] Amostra renderizada com sucesso! Iniciando download...');
+        triggerDownload(objectUrl, 'DreamDirector_Preview.mp4');
 
     } catch (e: any) {
         console.error('[FFmpeg Preview Error]', e);
@@ -416,12 +428,7 @@ const FinalCut: React.FC<FinalCutProps> = ({
 
   const handleDownload = () => {
     if (!url) return;
-    const a = (window as any).document.createElement('a');
-    a.href = url;
-    a.download = 'DreamDirector_FinalCut.mp4';
-    (window as any).document.body.appendChild(a);
-    a.click();
-    (window as any).document.body.removeChild(a);
+    triggerDownload(url, 'DreamDirector_FinalCut.mp4');
   };
 
   const handleTimeUpdate = useCallback(() => {

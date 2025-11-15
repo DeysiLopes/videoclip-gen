@@ -335,10 +335,18 @@ const App: React.FC = () => {
       // Save new config
       await dbService.saveProjectConfig(config);
 
+      // Create URL for the new audio file before setting state
+      let configWithUrl = { ...config };
+      if (config.audioFile) {
+        const url = URL.createObjectURL(config.audioFile);
+        objectUrls.current.add(url);
+        configWithUrl.audioUrl = url;
+      }
+
       // Update state
       setScenes([]);
       setRequestCount(0);
-      setProjectConfig(config);
+      setProjectConfig(configWithUrl);
       setAppMode(AppMode.STORYBOARD);
     },
     [projectConfig],
