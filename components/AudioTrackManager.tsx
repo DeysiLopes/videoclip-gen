@@ -47,7 +47,7 @@ const AudioTrackManager: React.FC<AudioTrackManagerProps> = ({
           type="button"
           onClick={onRemove}
           className="p-2 rounded-full hover:bg-gray-700 text-gray-400 hover:text-white transition-colors flex-shrink-0"
-          aria-label="Remove audio track"
+          aria-label="Remover faixa de áudio"
         >
           <XMarkIcon className="w-5 h-5" />
         </button>
@@ -63,7 +63,7 @@ const AudioTrackManager: React.FC<AudioTrackManagerProps> = ({
         className="w-full p-4 bg-gray-700/50 hover:bg-gray-700 border-2 border-dashed border-gray-600 rounded-lg flex items-center justify-center text-gray-400 hover:text-white transition-colors"
       >
         <MusicIcon className="w-6 h-6 mr-3" />
-        <span className="font-medium">Add Music Track (.mp3, .wav)</span>
+        <span className="font-medium">Adicionar Faixa de Música (.mp3, .wav)</span>
       </button>
       <input
         type="file"

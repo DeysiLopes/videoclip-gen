@@ -12,9 +12,9 @@ export enum AppState {
 }
 
 export enum AppMode {
-  SETUP = 'Project Setup',
+  SETUP = 'Configuração do Projeto',
   STORYBOARD = 'Storyboard',
-  FINAL_CUT = 'Final Cut',
+  FINAL_CUT = 'Corte Final',
 }
 
 export enum VeoModel {

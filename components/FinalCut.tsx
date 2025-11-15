@@ -99,14 +99,12 @@ const FinalCut: React.FC<FinalCutProps> = ({
       });
       
       // 1. Write all media files to FFmpeg's virtual file system
-      let fileListContent = '';
       for (let i = 0; i < sortedScenes.length; i++) {
         const scene = sortedScenes[i];
         if (scene.videoBlob) {
           const fileName = `in${i}.mp4`;
           const buf = new Uint8Array(await scene.videoBlob.arrayBuffer());
           await ffmpeg.writeFile(fileName, buf);
-          fileListContent += `file '${fileName}'\n`;
         } else {
           throw new Error(`Scene ${i + 1} is missing video data.`);
         }
@@ -118,33 +116,45 @@ const FinalCut: React.FC<FinalCutProps> = ({
         await ffmpeg.writeFile('music.mp3', mbuf);
       }
 
-      // 2. Build the FFmpeg command args using the robust `concat` demuxer
+      // 2. Build the FFmpeg command args using the robust `concat` filter
       const args: string[] = [];
+      const videoInputs: string[] = [];
+      const filterComplexParts: string[] = [];
 
-      // Use concat demuxer for multiple videos, or a single input for one video.
-      if (sortedScenes.length > 1) {
-        await ffmpeg.writeFile('mylist.txt', fileListContent);
-        args.push('-f', 'concat', '-safe', '0', '-i', 'mylist.txt');
-      } else if (sortedScenes.length === 1) {
-        args.push('-i', 'in0.mp4');
-      } else {
-        throw new Error("No scenes to render.");
+      // Add all video files as inputs and prepare filter parts
+      for (let i = 0; i < sortedScenes.length; i++) {
+        const fileName = `in${i}.mp4`;
+        videoInputs.push('-i', fileName);
+        filterComplexParts.push(`[${i}:v]`);
       }
+
+      args.push(...videoInputs);
 
       if (hasAudio) {
         args.push('-i', 'music.mp3');
       }
-      
-      // 3. Map streams correctly
-      // Map video stream from the first input (which is either the concat output or the single video)
-      args.push('-map', '0:v:0');
+
+      const numScenes = sortedScenes.length;
+      if (numScenes === 0) {
+        throw new Error("No scenes to render.");
+      }
+
+      // 3. Build the filter_complex argument and map streams
+      if (numScenes > 1) {
+        const concatFilter = `${filterComplexParts.join('')}concat=n=${numScenes}:v=1:a=0[outv]`;
+        args.push('-filter_complex', concatFilter);
+        args.push('-map', '[outv]'); // Map the output of the concat filter
+      } else {
+        // Only one video, just map it directly
+        args.push('-map', '0:v:0');
+      }
+
       if (hasAudio) {
-        // Map audio stream from the second input (music.mp3)
-        args.push('-map', '1:a:0');
+        // Audio is always the last input, so its index is numScenes
+        args.push('-map', `${numScenes}:a:0`); 
       }
       
       // 4. Set encoding options
-      // Copy video codec if possible, otherwise re-encode. For simplicity and robustness, we re-encode.
       args.push('-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-preset', 'veryfast', '-crf', '23', '-r', '24');
 
       if (hasAudio) {
@@ -156,7 +166,7 @@ const FinalCut: React.FC<FinalCutProps> = ({
       args.push('-movflags', '+faststart', '-y', 'out.mp4');
       
       setPhase('rendering');
-      console.log('Executing FFmpeg with simple concat args:', args);
+      console.log('Executing FFmpeg with robust concat filter args:', args);
       await ffmpeg.exec(args);
 
       const data = await ffmpeg.readFile('out.mp4');
@@ -212,26 +222,26 @@ const FinalCut: React.FC<FinalCutProps> = ({
   const canDownload = phase === 'done' && !!url;
 
   const renderButtonText = {
-      'idle': 'Render Video',
-      'loading': 'Loading Engine...',
-      'rendering': `Rendering... ${renderProgress}%`,
-      'done': 'Render Again',
-      'error': 'Render Failed - Try Again'
+      'idle': 'Renderizar Vídeo',
+      'loading': 'Carregando Mecanismo...',
+      'rendering': `Renderizando... ${renderProgress}%`,
+      'done': 'Renderizar Novamente',
+      'error': 'Falha na Renderização - Tente Novamente'
   }[phase];
 
   if (sortedScenes.length === 0) {
     return (
       <div className="text-center flex-grow flex flex-col items-center justify-center">
         <h2 className="text-2xl text-gray-500">
-          No generated or approved scenes.
+          Nenhuma cena gerada ou aprovada.
         </h2>
         <p className="text-gray-600 mt-2">
-          Go back and generate some scenes to preview the final cut.
+          Volte e gere algumas cenas para visualizar o corte final.
         </p>
         <button
           onClick={onBack}
           className="mt-6 px-6 py-2 bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors">
-          Back to Storyboard
+          Voltar para o Storyboard
         </button>
       </div>
     );
@@ -241,7 +251,7 @@ const FinalCut: React.FC<FinalCutProps> = ({
     <div className="w-full flex flex-col items-center gap-6 p-4">
       {isRendering && (
         <RenderProgressDialog
-          message={phase === 'loading' ? 'Loading FFmpeg core...' : 'Rendering video... This may take a few minutes.'}
+          message={phase === 'loading' ? 'Carregando núcleo FFmpeg...' : 'Renderizando vídeo... Isso pode levar alguns minutos.'}
           progress={renderProgress}
         />
       )}
@@ -258,7 +268,7 @@ const FinalCut: React.FC<FinalCutProps> = ({
         {activeScene && (
           <div className="absolute bottom-4 left-4 bg-black/50 p-2 rounded-md max-w-[calc(100%-2rem)]">
             <p className="text-white text-sm truncate">
-              Scene {sortedScenes.findIndex((s) => s.id === activeScene.id) + 1}:{' '}
+              Cena {sortedScenes.findIndex((s) => s.id === activeScene.id) + 1}:{' '}
               {activeScene.prompt}
             </p>
           </div>
@@ -292,10 +302,10 @@ const FinalCut: React.FC<FinalCutProps> = ({
       )}
 
       <div className="flex flex-col items-center gap-6 mt-4 p-6 bg-gray-800/50 rounded-xl border border-gray-700 w-full max-w-3xl">
-        <h3 className="text-2xl font-bold text-white">Export Your Masterpiece</h3>
+        <h3 className="text-2xl font-bold text-white">Exporte Sua Obra-Prima</h3>
         <p className="text-gray-400 text-center max-w-lg">
-          Combine all your approved scenes and the master audio track into a
-          single video file. This process happens entirely in your browser.
+          Combine todas as suas cenas aprovadas e a faixa de áudio principal em um
+          único arquivo de vídeo. Este processo acontece inteiramente no seu navegador.
         </p>
         <div className="flex items-center gap-4">
             <button
@@ -308,21 +318,21 @@ const FinalCut: React.FC<FinalCutProps> = ({
               onClick={handleDownload}
               disabled={!canDownload}
               className="px-8 py-4 bg-green-600 text-lg rounded-lg font-bold hover:bg-green-700 transition-colors disabled:bg-gray-600 disabled:cursor-not-allowed">
-                Download
+                Baixar
             </button>
         </div>
         {phase === 'error' && (
             <p className="text-sm text-red-400 mt-2 text-center max-w-md">{err}</p>
         )}
         <p className="text-xs text-gray-500 text-center mt-2">
-          Rendering may take several minutes depending on video length and your
-          computer's performance.
+          A renderização pode levar vários minutos, dependendo da duração do vídeo e
+          do desempenho do seu computador.
         </p>
         <div className="mt-4">
           <button
             onClick={onBack}
             className="px-6 py-2 bg-gray-700 rounded-lg hover:bg-gray-600 transition-colors">
-            Back to Storyboard
+            Voltar para o Storyboard
           </button>
         </div>
       </div>

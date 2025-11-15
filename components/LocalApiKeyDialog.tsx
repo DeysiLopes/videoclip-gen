@@ -24,9 +24,9 @@ const LocalApiKeyDialog: React.FC<LocalApiKeyDialogProps> = ({ onSave }) => {
         <div className="bg-indigo-600/20 p-4 rounded-full mb-6">
           <KeyIcon className="w-12 h-12 text-indigo-400" />
         </div>
-        <h2 className="text-3xl font-bold text-white mb-4">Enter Your Gemini API Key</h2>
+        <h2 className="text-3xl font-bold text-white mb-4">Insira sua Chave de API Gemini</h2>
         <p className="text-gray-300 mb-6 text-center">
-          To generate videos, this application requires a Google Gemini API key. Please enter your key below to get started.
+          Para gerar vídeos, esta aplicação requer uma chave de API do Google Gemini. Por favor, insira sua chave abaixo para começar.
         </p>
         <div className="w-full mb-6">
           <input
@@ -34,12 +34,12 @@ const LocalApiKeyDialog: React.FC<LocalApiKeyDialogProps> = ({ onSave }) => {
             value={apiKey}
             // Fix: Cast to any to access value property, due to a potential TS configuration issue.
             onChange={(e) => setApiKey((e.target as any).value)}
-            placeholder="Enter your API Key"
+            placeholder="Insira sua Chave de API"
             className="w-full bg-gray-900 border border-gray-600 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
           />
         </div>
         <p className="text-gray-400 mb-8 text-sm text-center">
-          You can get your key from{' '}
+          Você pode obter sua chave no{' '}
           <a
             href="https://ai.google.dev/gemini-api"
             target="_blank"
@@ -48,14 +48,14 @@ const LocalApiKeyDialog: React.FC<LocalApiKeyDialogProps> = ({ onSave }) => {
           >
             Google AI Studio
           </a>
-          . Your key is stored only in your browser's local storage.
+          . Sua chave é armazenada apenas no armazenamento local do seu navegador.
         </p>
         <button
           onClick={handleSave}
           disabled={!apiKey.trim()}
           className="w-full px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg transition-colors text-lg disabled:bg-gray-600 disabled:cursor-not-allowed"
         >
-          Save and Continue
+          Salvar e Continuar
         </button>
       </div>
     </div>

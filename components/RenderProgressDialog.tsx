@@ -13,7 +13,7 @@ const RenderProgressDialog: React.FC<RenderProgressDialogProps> = ({ message, pr
     return (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
             <div className="bg-gray-800 border border-gray-700 rounded-2xl shadow-xl max-w-lg w-full p-8 text-center flex flex-col items-center">
-                <h2 className="text-3xl font-bold text-white mb-4">Rendering Final Video</h2>
+                <h2 className="text-3xl font-bold text-white mb-4">Renderizando Vídeo Final</h2>
                 <p className="text-gray-300 mb-6 min-h-[40px]">
                     {message}
                 </p>
@@ -23,7 +23,7 @@ const RenderProgressDialog: React.FC<RenderProgressDialogProps> = ({ message, pr
                         style={{ width: `${progress}%` }}
                     ></div>
                 </div>
-                <p className="text-sm text-gray-400">Please keep this browser tab open.</p>
+                <p className="text-sm text-gray-400">Por favor, mantenha esta aba do navegador aberta.</p>
             </div>
         </div>
     );

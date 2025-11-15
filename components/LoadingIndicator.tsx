@@ -5,25 +5,25 @@
 import React, { useState, useEffect } from 'react';
 
 const loadingMessages = [
-  "Warming up the digital director...",
-  "Gathering pixels and photons...",
-  "Storyboarding your vision...",
-  "Consulting with the AI muse...",
-  "Rendering the first scene...",
-  "Applying cinematic lighting...",
-  "This can take a few minutes, hang tight!",
-  "Adding a touch of movie magic...",
-  "Composing the final cut...",
-  "Polishing the masterpiece...",
-  "Teaching the AI to say 'I'll be back'...",
-  "Checking for digital dust bunnies...",
-  "Calibrating the irony sensors...",
-  "Untangling the timelines...",
-  "Enhancing to ludicrous speed...",
-  "Don't worry, the pixels are friendly.",
-  "Harvesting nano banana stems...",
-  "Praying to the Gemini star...",
-  "Starting a draft for your oscar speech..."
+  "Aquecendo o diretor digital...",
+  "Reunindo pixels e fótons...",
+  "Criando o storyboard da sua visão...",
+  "Consultando a musa da IA...",
+  "Renderizando a primeira cena...",
+  "Aplicando iluminação cinematográfica...",
+  "Isso pode levar alguns minutos, aguente firme!",
+  "Adicionando um toque de magia do cinema...",
+  "Compondo o corte final...",
+  "Polindo a obra-prima...",
+  "Ensinando a IA a dizer 'Eu voltarei'...",
+  "Verificando se há poeira digital...",
+  "Calibrando os sensores de ironia...",
+  "Desembaraçando as linhas do tempo...",
+  "Aprimorando para a velocidade da luz...",
+  "Não se preocupe, os pixels são amigáveis.",
+  "Colhendo caules de nano bananas...",
+  "Rezando para a estrela Gemini...",
+  "Começando um rascunho para o seu discurso do Oscar..."
 ];
 
 const LoadingIndicator: React.FC = () => {
@@ -40,7 +40,7 @@ const LoadingIndicator: React.FC = () => {
   return (
     <div className="flex flex-col items-center justify-center p-12 bg-gray-800/50 rounded-lg border border-gray-700">
       <div className="w-16 h-16 border-4 border-t-transparent border-indigo-500 rounded-full animate-spin"></div>
-      <h2 className="text-2xl font-semibold mt-8 text-gray-200">Generating Your Video</h2>
+      <h2 className="text-2xl font-semibold mt-8 text-gray-200">Gerando Seu Vídeo</h2>
       <p className="mt-2 text-gray-400 text-center transition-opacity duration-500">
         {loadingMessages[messageIndex]}
       </p>

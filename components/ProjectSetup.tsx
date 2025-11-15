@@ -93,17 +93,17 @@ const extractVideoFrame = (videoFile: File): Promise<ImageFile> => {
   });
 };
 
-const defaultTechnicalSheet = `Technical Sheet (applicable to all scenes)
+const defaultTechnicalSheet = `Ficha Técnica (aplicável a todas as cenas)
 
-Resolution: 4K (3840×2160)
-Frame Rate: 24 fps
-Aspect Ratio: 16:9
-Simulated Cameras: 50mm (close-up) and 24mm (wide-angle)
-Lighting: warm soft-key (#f6d27b) + golden backlight
-Environment: light or mirrored floor, white columns, hanging lights, soft atmosphere with golden haze
-Costume: Greek-style white dress, golden belt and bracelet, white sandals, long straight hair
-Camera Movements: slow travellings, lateral pans, 360° rotation, final zoom-out
-Visual Effects: golden particles, soft glow, warm flare, natural fade-in/fade-out`;
+Resolução: 4K (3840×2160)
+Taxa de Quadros: 24 fps
+Proporção de Tela: 16:9
+Câmeras Simuladas: 50mm (close-up) e 24mm (grande-angular)
+Iluminação: soft-key quente (#f6d27b) + luz de fundo dourada
+Ambiente: piso claro ou espelhado, colunas brancas, luzes suspensas, atmosfera suave com névoa dourada
+Figurino: vestido branco estilo grego, cinto e pulseira dourados, sandálias brancas, cabelo longo e liso
+Movimentos de Câmera: travellings lentos, panorâmicas laterais, rotação 360°, zoom-out final
+Efeitos Visuais: partículas douradas, brilho suave, reflexo quente, fade-in/fade-out natural`;
 
 const StyleUploader: React.FC<{
   onSelect: (frame: ImageFile, sourceFile: File) => void;
@@ -125,7 +125,7 @@ const StyleUploader: React.FC<{
           frame = await fileToImageFile(file);
         } else {
           // Fix: Cannot find name 'alert'.
-          (window as any).alert('Unsupported file type. Please upload an image or video.');
+          (window as any).alert('Tipo de arquivo não suportado. Por favor, envie uma imagem ou vídeo.');
           return;
         }
         onSelect(frame, file);
@@ -133,7 +133,7 @@ const StyleUploader: React.FC<{
         console.error('Error processing file:', error);
         // Fix: Cannot find name 'alert'.
         (window as any).alert(
-          `Error processing file: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          `Erro ao processar o arquivo: ${error instanceof Error ? error.message : 'Erro desconhecido'}`,
         );
       }
     }
@@ -180,7 +180,7 @@ const StyleUploader: React.FC<{
           onClick={() => (inputRef.current as any)?.click()}
           className="w-32 h-32 bg-gray-700/50 hover:bg-gray-700 border-2 border-dashed border-gray-600 rounded-lg flex flex-col items-center justify-center text-gray-400 hover:text-white transition-colors flex-shrink-0">
           <UploadIcon className="w-8 h-8" />
-          <span className="text-sm mt-2">Upload</span>
+          <span className="text-sm mt-2">Enviar</span>
           <input
             type="file"
             ref={inputRef}
@@ -203,7 +203,7 @@ const parseConfigFromSheet = (text: string) => {
   let aspectRatio = AspectRatio.LANDSCAPE;
   let resolution = Resolution.P1080;
 
-  const arMatch = text.match(/Aspect Ratio:\s*([^\n\r]*)/i);
+  const arMatch = text.match(/Proporção de Tela:\s*([^\n\r]*)/i) || text.match(/Aspect Ratio:\s*([^\n\r]*)/i);
   if (arMatch && arMatch[1]) {
     const parsedAr = arMatch[1].trim();
     if (Object.values(AspectRatio).includes(parsedAr as AspectRatio)) {
@@ -211,7 +211,7 @@ const parseConfigFromSheet = (text: string) => {
     }
   }
 
-  const resMatch = text.match(/Resolution:\s*([^\n\r]*)/i);
+  const resMatch = text.match(/Resolução:\s*([^\n\r]*)/i) || text.match(/Resolution:\s*([^\n\r]*)/i);
   if (resMatch && resMatch[1]) {
     const parsedRes = resMatch[1].trim().toLowerCase();
     if (parsedRes.includes('720p')) {
@@ -338,34 +338,34 @@ const ProjectSetup: React.FC<ProjectSetupProps> = ({
     <div className="flex-grow flex items-start justify-center pt-8">
       <div className="w-full max-w-3xl space-y-6">
         <h2 className="text-2xl font-bold text-center text-gray-200">
-          Create a New Video Project
+          Criar um Novo Projeto de Vídeo
         </h2>
         <p className="text-center text-gray-400">
-          Start by setting up the technical details and creative direction for
-          your music video.
+          Comece configurando os detalhes técnicos e a direção criativa do seu
+          videoclipe.
         </p>
         <form onSubmit={handleSubmit} className="space-y-8">
           {/* Technical Sheet */}
           <div className="bg-gray-800/50 p-6 rounded-xl border border-gray-700">
             <h3 className="text-xl font-semibold text-white mb-4">
-              1. Technical Sheet
+              1. Ficha Técnica
             </h3>
             <textarea
               value={technicalSheet}
               onChange={handleTechnicalSheetChange}
               className="w-full h-72 bg-gray-900/70 border border-gray-600 rounded-lg p-4 font-mono text-sm focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 resize-y"
-              placeholder="Enter your technical specifications for all scenes..."
+              placeholder="Insira suas especificações técnicas para todas as cenas..."
             />
             <div className="mt-2 text-xs text-gray-500">
               <p>
-                The app will parse Resolution and Aspect Ratio from this sheet.
+                O aplicativo analisará a Resolução e a Proporção de Tela desta ficha.
               </p>
               <p className="mt-1">
-                Detected - Resolution:{' '}
+                Detectado - Resolução:{' '}
                 <span className="text-gray-300 font-semibold">
                   {resolution}
                 </span>
-                , Aspect Ratio:{' '}
+                , Proporção de Tela:{' '}
                 <span className="text-gray-300 font-semibold">
                   {aspectRatio}
                 </span>
@@ -376,11 +376,11 @@ const ProjectSetup: React.FC<ProjectSetupProps> = ({
           {/* Character & Style */}
           <div className="space-y-4">
             <h3 className="text-xl font-semibold text-white text-center">
-              2. Character & Style (Optional)
+              2. Personagem e Estilo (Opcional)
             </h3>
             <div className="bg-gray-800/50 p-6 rounded-xl border border-gray-700">
-                <h3 className="text-lg font-semibold text-white">Main Character</h3>
-                <p className="text-gray-400 text-sm mt-1">Upload up to 5 images of the main character for better likeness.</p>
+                <h3 className="text-lg font-semibold text-white">Personagem Principal</h3>
+                <p className="text-gray-400 text-sm mt-1">Envie até 5 imagens do personagem principal para melhor semelhança.</p>
                 <div className="mt-4 flex flex-wrap items-center gap-4">
                     {characterImages.map((image, index) => (
                         <div key={index} className="relative w-24 h-24 group flex-shrink-0">
@@ -404,7 +404,7 @@ const ProjectSetup: React.FC<ProjectSetupProps> = ({
                             onClick={() => (characterImageInputRef.current as any)?.click()}
                             className="w-24 h-24 bg-gray-700/50 hover:bg-gray-700 border-2 border-dashed border-gray-600 rounded-lg flex flex-col items-center justify-center text-gray-400 hover:text-white transition-colors flex-shrink-0">
                             <UploadIcon className="w-8 h-8" />
-                            <span className="text-xs mt-2">Upload ({characterImages.length}/5)</span>
+                            <span className="text-xs mt-2">Enviar ({characterImages.length}/5)</span>
                             <input
                                 type="file"
                                 ref={characterImageInputRef}
@@ -417,8 +417,8 @@ const ProjectSetup: React.FC<ProjectSetupProps> = ({
                 </div>
             </div>
             <StyleUploader
-              label="Style Reference"
-              description="Upload an image or short video to influence the video's artistic style, colors, and lighting."
+              label="Referência de Estilo"
+              description="Envie uma imagem ou um vídeo curto para influenciar o estilo artístico, as cores e a iluminação do vídeo."
               styleSourceFile={styleSourceFile}
               onSelect={handleStyleSelect}
               onRemove={handleStyleRemove}
@@ -428,7 +428,7 @@ const ProjectSetup: React.FC<ProjectSetupProps> = ({
           {/* Audio */}
           <div>
             <h3 className="text-xl font-semibold text-white text-center mb-4">
-              3. Music Track
+              3. Faixa de Música
             </h3>
             <AudioTrackManager
               audioFile={audioFile}
@@ -443,12 +443,12 @@ const ProjectSetup: React.FC<ProjectSetupProps> = ({
               type="submit"
               disabled={!audioFile}
               className="w-full max-w-md px-8 py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg transition-colors text-lg inline-flex items-center justify-center gap-2 disabled:bg-gray-600 disabled:cursor-not-allowed">
-              Start Building Scenes
+              Começar a Construir Cenas
               <ArrowRightIcon className="w-5 h-5" />
             </button>
             {!audioFile && (
               <p className="text-gray-400 text-sm mt-2">
-                Please upload an audio track to continue.
+                Por favor, envie uma faixa de áudio para continuar.
               </p>
             )}
           </div>
