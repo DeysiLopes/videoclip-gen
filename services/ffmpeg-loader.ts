@@ -10,7 +10,7 @@ let ffmpegSingleton: FFmpeg | null = null;
 export async function getFFmpeg() {
   if (ffmpegSingleton?.loaded) return ffmpegSingleton;
 
-  console.log('[FFmpeg Debug] Initializing single-threaded FFmpeg to ensure deployment compatibility.');
+  console.log('[FFmpeg Debug] Initializing FFmpeg (v0.12.10 ESM with toBlobURL)');
 
   const ffmpeg = new FFmpeg();
 
@@ -19,44 +19,57 @@ export async function getFFmpeg() {
   });
 
   try {
-    console.log('[FFmpeg Debug] Loading single-threaded core from CDN...');
-    // Use the single-threaded version (@ffmpeg/core) to avoid cross-origin isolation issues.
-    // This is more reliable in deployment environments where server headers cannot be controlled.
-    const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm';
+    console.log('[FFmpeg Debug] Loading FFmpeg from CDN...');
 
-    console.log('[FFmpeg Debug] Attempting to load with toBlobURL...');
+    // Use ESM build with toBlobURL - most reliable approach
+    // This converts files to blob URLs to avoid CORS and import issues
+    const baseURL = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/esm';
+
+    console.log('[FFmpeg Debug] Converting to blob URLs for CORS safety...');
+
     try {
+      // Convert URLs to blob URLs to avoid cross-origin issues
       const coreURL = await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript');
       const wasmURL = await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm');
+      const workerURL = await toBlobURL(`${baseURL}/ffmpeg-core.worker.js`, 'text/javascript');
 
-      console.log('[FFmpeg Debug] URLs prepared with toBlobURL, initiating load...');
+      console.log('[FFmpeg Debug] ✅ Blob URLs created, loading FFmpeg...');
 
-      // The single-threaded version does not use a workerURL.
+      await ffmpeg.load({
+        coreURL,
+        wasmURL,
+        workerURL,
+      });
+
+      console.log('[FFmpeg Debug] ✅ FFmpeg loaded successfully with toBlobURL');
+
+    } catch (blobError) {
+      console.warn('[FFmpeg Debug] toBlobURL failed, trying direct URLs:', blobError);
+
+      // Fallback: try jsDelivr with different path
+      const fallbackBaseURL = 'https://unpkg.com/@ffmpeg/core@0.12.10/dist/esm';
+
+      const coreURL = `${fallbackBaseURL}/ffmpeg-core.js`;
+      const wasmURL = `${fallbackBaseURL}/ffmpeg-core.wasm`;
+
+      console.log('[FFmpeg Debug] Trying fallback CDN (unpkg)...');
+
       await ffmpeg.load({
         coreURL,
         wasmURL,
       });
 
-      console.log('[FFmpeg Debug] FFmpeg core loaded successfully with toBlobURL.');
-    } catch (blobError) {
-      console.warn('[FFmpeg Debug] toBlobURL failed:', blobError);
-      console.log('[FFmpeg Debug] Attempting to load direct URLs from CDN...');
-
-      // Fallback: load directly from CDN without toBlobURL
-      await ffmpeg.load({
-        coreURL: `${baseURL}/ffmpeg-core.js`,
-        wasmURL: `${baseURL}/ffmpeg-core.wasm`,
-      });
-
-      console.log('[FFmpeg Debug] FFmpeg core loaded successfully with direct URLs.');
+      console.log('[FFmpeg Debug] ✅ FFmpeg loaded from fallback CDN');
     }
+
   } catch (e) {
-    console.error('[FFmpeg Debug] FFmpeg core loading failed.', e);
+    console.error('[FFmpeg Error] Failed to load FFmpeg:', e);
+    console.error('[FFmpeg Error] Stack:', (e as any)?.stack);
     ffmpegSingleton = null;
     throw new Error(`Failed to load FFmpeg: ${e instanceof Error ? e.message : 'Unknown error'}`);
   }
   
   ffmpegSingleton = ffmpeg;
-  console.log('[FFmpeg Debug] FFmpeg singleton created and ready.');
+  console.log('[FFmpeg Debug] ✅ FFmpeg singleton ready and loaded');
   return ffmpeg;
 }

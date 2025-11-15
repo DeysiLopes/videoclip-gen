@@ -125,208 +125,119 @@ const FinalCut: React.FC<FinalCutProps> = ({
     try {
       const ffmpeg = await getFFmpeg();
 
-      // ============ DETECTAR FASE BASEADO NO TEMPO ============
-      let detectedPhase: 'encoding' | 'concatenating' | 'finalizing' | 'unknown' = 'unknown';
-      const startRenderTime = Date.now();
-      const ENCODING_PHASE_DURATION = 5 * 60 * 1000; // Primeiros 5 minutos = encoding
-      const CONCAT_PHASE_DURATION = 2 * 60 * 1000; // Próximos 2 minutos = concat
-
       setPhase('rendering');
-      setCurrentPhase('encoding'); // ← Iniciar com encoding
+      setCurrentPhase('encoding');
       setRenderProgress(0);
 
-      ffmpeg.on('log', ({message}) => console.log('[FFmpeg Log]:', message));
+      ffmpeg.on('log', ({message}) => console.log('[FFmpeg Render Log]:', message));
 
-      let lastProgressUpdate = 0;
       let lastProgressTime = Date.now();
       ffmpeg.on('progress', ({progress, time}) => {
-        const elapsedTime = Date.now() - startRenderTime;
-
-        // Atualizar fase baseado no tempo e progresso
-        if (progress < 0.3 || elapsedTime < ENCODING_PHASE_DURATION) {
-          detectedPhase = 'encoding';
-        } else if (progress < 0.7 || elapsedTime < (ENCODING_PHASE_DURATION + CONCAT_PHASE_DURATION)) {
-          detectedPhase = 'concatenating';
-        } else {
-          detectedPhase = 'finalizing';
-        }
-
-        setCurrentPhase(detectedPhase);
+        lastProgressTime = Date.now();
         if (progress >= 0 && progress <= 1) {
           const percentage = Math.round(progress * 100);
           setRenderProgress(percentage);
-          lastProgressTime = Date.now();
-
-          // Log progress a cada 10%
-          if (percentage - lastProgressUpdate >= 10) {
-            console.log(`[FFmpeg Progress] ${percentage}% concluído (tempo: ${time}s)`);
-            lastProgressUpdate = percentage;
-          }
+          console.log(`[FFmpeg Progress] ${percentage}% - ${time}s`);
         }
       });
 
-      // Monitorar se FFmpeg está travado (sem progresso por 30s)
-      const progressTimeout = setInterval(() => {
-        const timeSinceLastProgress = Date.now() - lastProgressTime;
-        if (timeSinceLastProgress > 30000 && renderProgress < 100) {
-          console.warn('[FFmpeg Warning] Sem progresso por 30 segundos. FFmpeg pode estar travado.');
-        }
-      }, 10000);
-
-      // 1. Write all media files to FFmpeg's virtual file system
-      console.log('[FFmpeg Debug] Iniciando escrita de arquivos de vídeo no sistema virtual...');
+      // 1. Write original video files
+      console.log('[FFmpeg] Escrevendo vídeos...');
       for (let i = 0; i < sortedScenes.length; i++) {
         const scene = sortedScenes[i];
         if (scene.videoBlob) {
           const fileName = `in${i}.mp4`;
-          console.log(`[FFmpeg Debug] Escrevendo arquivo ${fileName}, tamanho do blob: ${scene.videoBlob.size} bytes`);
           const buf = new Uint8Array(await scene.videoBlob.arrayBuffer());
           await ffmpeg.writeFile(fileName, buf);
-          console.log(`[FFmpeg Debug] ✓ Arquivo ${fileName} escrito com sucesso`);
+          console.log(`[FFmpeg] ✓ ${fileName} (${(scene.videoBlob.size / 1024 / 1024).toFixed(2)} MB)`);
         } else {
-           const originalSceneIndex = scenes.findIndex(s => s.id === scene.id);
-          throw new Error(`Cena ${originalSceneIndex + 1} está sem dados de vídeo (blob). Por favor, gere novamente.`);
+          const originalSceneIndex = scenes.findIndex(s => s.id === scene.id);
+          throw new Error(`Cena ${originalSceneIndex + 1} sem vídeo`);
         }
       }
 
+      // 2. Write audio
       const hasAudio = !!projectConfig.audioFile;
       if (hasAudio) {
-        console.log('[FFmpeg Debug] Escrevendo arquivo de áudio...');
+        console.log('[FFmpeg] Escrevendo áudio...');
         const mbuf = new Uint8Array(await projectConfig.audioFile.arrayBuffer());
         await ffmpeg.writeFile('music.mp3', mbuf);
-        console.log('[FFmpeg Debug] ✓ Arquivo de áudio escrito com sucesso');
+        console.log('[FFmpeg] ✓ Áudio escrito');
       }
 
-      // 2. Build the FFmpeg command args using filter_complex simples
+      setCurrentPhase('concatenating');
+
+      // 3. Build FFmpeg command with concat filter
       const args: string[] = [];
 
-      // ============ INPUTS ============
+      // Add all video inputs
       for (let i = 0; i < sortedScenes.length; i++) {
         args.push('-i', `in${i}.mp4`);
       }
 
+      // Add audio input
       if (hasAudio) {
         args.push('-i', 'music.mp3');
       }
 
-      const numScenes = sortedScenes.length;
-      if (numScenes === 0) {
-        throw new Error("No scenes to render.");
-      }
-
-      // ============ FILTRO SIMPLES ============
-      // Construir filtro: [0:v][1:v][2:v]...[N:v]concat=n=N:v=1:a=0[outv]
+      // Build filter complex: concat all videos
       let filterComplex = '';
-      for (let i = 0; i < numScenes; i++) {
+      for (let i = 0; i < sortedScenes.length; i++) {
         filterComplex += `[${i}:v]`;
       }
-      filterComplex += `concat=n=${numScenes}:v=1:a=0[outv]`;
+      filterComplex += `concat=n=${sortedScenes.length}:v=1:a=0[outv]`;
 
       args.push('-filter_complex', filterComplex);
+      args.push('-map', '[outv]');
 
-      // ============ MAPEAMENTO DE STREAMS ============
-      args.push('-map', '[outv]');  // Vídeo concatenado
-
+      // Map audio
       if (hasAudio) {
-        const audioInputIndex = numScenes;
-        args.push('-map', `${audioInputIndex}:a:0`);  // Áudio externo
+        args.push('-map', `${sortedScenes.length}:a:0`);
       }
 
-      // ============ CODEC VP9 LEVE ============
-      // VP9 é mais eficiente que libx264 em WASM
+      // Encoding settings: VP9 PESADO (qualidade máxima)
       args.push('-c:v', 'libvpx-vp9');
-      args.push('-deadline', 'realtime');  // Modo fast (sacrifica qualidade pela velocidade)
-      args.push('-cpu-used', '8');  // CPU máximo (0=mais lento mas melhor qualidade, 16=mais rápido)
-      args.push('-b:v', '1200k');  // Bitrate conservador
-      args.push('-maxrate', '1500k');
-      args.push('-bufsize', '3000k');
+      args.push('-deadline', 'good');          // Qualidade melhor (não realtime)
+      args.push('-cpu-used', '0');             // Qualidade máxima (muito lento, mas melhor)
+      args.push('-b:v', '3000k');              // Bitrate alto (3Mbps)
+      args.push('-maxrate', '4000k');          // Taxa máxima
+      args.push('-bufsize', '8000k');          // Buffer maior
       args.push('-pix_fmt', 'yuv420p');
+      args.push('-tile-columns', '2');         // Melhor compressão
+      args.push('-tile-rows', '2');            // Melhor compressão
 
       if (hasAudio) {
         args.push('-c:a', 'aac');
         args.push('-b:a', '128k');
-        // ✅ CRÍTICO: sincronizar com áudio (usar duração do áudio como referência)
         args.push('-shortest');
       }
 
       args.push('-movflags', '+faststart');
       args.push('-y', 'out.mp4');
 
-      setPhase('rendering');
-      console.log('[FFmpeg Debug] Todos os arquivos foram carregados. Iniciando renderização...');
-      console.log('[FFmpeg Debug] ✅ ESTRATÉGIA FINAL: Filter complex simples + VP9 leve');
-      console.log('[FFmpeg Debug] Comando FFmpeg:', args);
-      console.log('[FFmpeg Debug] ⏱️ VP9 é mais rápido que libx264. Duração será sincronizada com áudio via -shortest');
+      console.log('[FFmpeg] Iniciando renderização...');
+      console.log('[FFmpeg] Comando:', args.join(' '));
 
-      // ============ DIAGNÓSTICO DETALHADO ============
-      let lastLogTime = Date.now();
-      let hasReceivedLogs = false;
+      setCurrentPhase('finalizing');
+      const startTime = Date.now();
+      await ffmpeg.exec(args);
+      const elapsedTime = Date.now() - startTime;
 
-      const logDiagnosisInterval = setInterval(() => {
-        const timeSinceLastLog = Date.now() - lastLogTime;
-        const elapsedSinceStart = Math.floor((Date.now() - lastProgressTime) / 1000);
+      console.log(`[FFmpeg] ✅ Renderização completa em ${(elapsedTime / 1000).toFixed(1)}s`);
 
-        if (timeSinceLastLog > 5000) {
-          console.warn(`[FFmpeg Diagnosis] ⚠️ Sem logs por ${Math.floor(timeSinceLastLog / 1000)}s. Tempo total: ${elapsedSinceStart}s`);
-          console.warn(`[FFmpeg Diagnosis] Verificação de status:`);
-          console.warn(`  - Logs recebidos: ${hasReceivedLogs ? 'SIM ✅' : 'NÃO ❌'}`);
-          console.warn(`  - Progresso: ${renderProgress}%`);
-          console.warn(`  - Possível causa: FFmpeg pode estar processando em background sem callbacks`);
-        }
-      }, 5000);
+      // 4. Read and save output
+      console.log('[FFmpeg] Lendo arquivo de saída...');
+      const data = await ffmpeg.readFile('out.mp4');
+      const sizeInMB = (data.length / 1024 / 1024).toFixed(2);
+      console.log(`[FFmpeg] ✅ Arquivo lido: ${sizeInMB} MB`);
 
-      // Melhorar listener de logs
-      ffmpeg.on('log', ({message}) => {
-        lastLogTime = Date.now();
-        hasReceivedLogs = true;
-        console.log('[FFmpeg Log]:', message);
-      });
+      const blob = new Blob([data], { type: 'video/mp4' });
+      const href = URL.createObjectURL(blob);
+      setUrl(href);
+      setPhase('done');
+      setRenderProgress(100);
+      console.log('[FFmpeg] ========== RENDERIZAÇÃO SUCESSO ==========');
 
-      let finalProgressTime = Date.now();
-      ffmpeg.on('progress', ({progress, time}) => {
-        finalProgressTime = Date.now();
-        const percentage = (progress * 100).toFixed(1);
-        console.log(`[FFmpeg Progress] ${percentage}% concluído (tempo: ${time}s)`);
-        if (progress >= 0 && progress <= 1) {
-          setRenderProgress(Math.round(progress * 100));
-        }
-      });
-
-      try {
-        console.log('[FFmpeg Debug] ========== INICIANDO EXECUÇÃO ==========');
-        console.log('[FFmpeg Debug] Chamando ffmpeg.exec()...');
-        console.time('[FFmpeg Exec Duration]');
-
-        const startTime = Date.now();
-        await ffmpeg.exec(args);
-        const elapsedTime = Date.now() - startTime;
-
-        console.timeEnd('[FFmpeg Exec Duration]');
-        console.log(`[FFmpeg Debug] ✅ ffmpeg.exec() completou em ${(elapsedTime / 1000).toFixed(1)}s`);
-
-        clearInterval(logDiagnosisInterval);
-        clearInterval(progressTimeout);
-
-        console.log('[FFmpeg Debug] Lendo arquivo de saída...');
-        const data = await ffmpeg.readFile('out.mp4');
-        const sizeInMB = (data.length / 1024 / 1024).toFixed(2);
-        console.log(`[FFmpeg Debug] ✅ Arquivo lido com sucesso. Tamanho: ${sizeInMB} MB (${data.length} bytes)`);
-
-        const blob = new Blob([data], { type: 'video/mp4' });
-        const href = URL.createObjectURL(blob);
-        setUrl(href);
-        setPhase('done');
-        setRenderProgress(100);
-        console.log('[FFmpeg Debug] ========== RENDERIZAÇÃO FINALIZADA COM SUCESSO! ==========');
-
-      } catch (execError: any) {
-        clearInterval(logDiagnosisInterval);
-        clearInterval(progressTimeout);
-        console.error('[FFmpeg Error] Execução falhou:', execError);
-        console.error('[FFmpeg Error] Stack trace:', execError?.stack);
-        setErr(`Falha na renderização: ${execError?.message ?? String(execError)}`);
-        setPhase('error');
-      }
     } catch (e: any) {
       console.error('[FFmpeg Error]', e);
       setErr(`Falha na renderização: ${e?.message ?? String(e)}`);
@@ -341,89 +252,125 @@ const FinalCut: React.FC<FinalCutProps> = ({
     setRenderProgress(0);
 
     try {
-        const ffmpeg = await getFFmpeg();
+      const ffmpeg = await getFFmpeg();
 
-        let lastProgressTime = Date.now();
-        ffmpeg.on('log', ({ message }) => console.log('[FFmpeg Preview Log]:', message));
-        ffmpeg.on('progress', ({ progress }) => {
-            lastProgressTime = Date.now();
-            if (progress >= 0 && progress <= 1) {
-                // Scale progress from 30% to 100% for the final encoding stage
-                setRenderProgress(30 + Math.round(progress * 70));
-            }
-        });
-        
-        setPhase('rendering');
-        setCurrentPhase('encoding');
+      setPhase('rendering');
+      setCurrentPhase('concatenating');
+      setRenderProgress(0);
 
-        // 1. Write original video and audio files
-        for (let i = 0; i < sortedScenes.length; i++) {
-            const scene = sortedScenes[i];
-            if (scene.videoBlob) {
-                await ffmpeg.writeFile(`in${i}.mp4`, new Uint8Array(await scene.videoBlob.arrayBuffer()));
-            } else {
-                throw new Error(`Cena ${i + 1} está sem dados de vídeo.`);
-            }
-        }
-        const hasAudio = !!projectConfig.audioFile;
-        if (hasAudio) {
-            await ffmpeg.writeFile('music.mp3', new Uint8Array(await projectConfig.audioFile.arrayBuffer()));
-        }
+      ffmpeg.on('log', ({message}) => console.log('[FFmpeg Preview Log]:', message));
 
-        // 2. Trim each video to 5 seconds without re-encoding
-        console.log('[FFmpeg Preview] Trimming videos...');
-        for (let i = 0; i < sortedScenes.length; i++) {
-            await ffmpeg.exec(['-i', `in${i}.mp4`, '-t', '5', '-c', 'copy', '-y', `trimmed${i}.mp4`]);
-            setRenderProgress(Math.round(((i + 1) / sortedScenes.length) * 30)); // Show progress for trim stage
+      let lastProgressTime = Date.now();
+      ffmpeg.on('progress', ({progress}) => {
+        lastProgressTime = Date.now();
+        if (progress >= 0 && progress <= 1) {
+          setRenderProgress(Math.round(progress * 100));
         }
+      });
 
-        setCurrentPhase('concatenating');
+      console.log('[FFmpeg Preview] 🎬 Trimando 5 segundos de cada vídeo (copy codec - SEM encoding)...');
 
-        // 3. Build command to concatenate trimmed videos and encode final output
-        const args: string[] = [];
-        for (let i = 0; i < sortedScenes.length; i++) {
-            args.push('-i', `trimmed${i}.mp4`);
-        }
-        if (hasAudio) {
-            args.push('-i', 'music.mp3');
-        }
+      // 1. TRIM cada vídeo para 5 segundos (copy = muito rápido, sem re-encode)
+      for (let i = 0; i < sortedScenes.length; i++) {
+        const scene = sortedScenes[i];
+        if (scene.videoBlob) {
+          const fileName = `in${i}.mp4`;
+          const buf = new Uint8Array(await scene.videoBlob.arrayBuffer());
+          await ffmpeg.writeFile(fileName, buf);
 
-        let filterComplex = '';
-        for (let i = 0; i < sortedScenes.length; i++) {
-            filterComplex += `[${i}:v]`;
-        }
-        filterComplex += `concat=n=${sortedScenes.length}:v=1:a=0[outv]`;
-        args.push('-filter_complex', filterComplex);
+          const trimmedFileName = `trimmed${i}.mp4`;
+          console.log(`[FFmpeg Preview] ✂️ Trimando ${fileName} para 5s (copy codec)...`);
 
-        args.push('-map', '[outv]');
-        if (hasAudio) {
-            args.push('-map', `${sortedScenes.length}:a:0`);
-        }
-        
-        // Use lightweight VP9 encoding
-        args.push('-c:v', 'libvpx-vp9', '-deadline', 'realtime', '-cpu-used', '8', '-b:v', '1200k', '-pix_fmt', 'yuv420p');
-        if (hasAudio) {
-            args.push('-c:a', 'aac', '-b:a', '128k', '-shortest');
-        }
-        args.push('-y', 'preview.mp4');
+          await ffmpeg.exec([
+            '-i', fileName,
+            '-t', '5',
+            '-c:v', 'copy',      // ⚡ SEM re-encoding!
+            '-c:a', 'copy',      // ⚡ SEM re-encoding!
+            '-y', trimmedFileName
+          ]);
 
-        setCurrentPhase('finalizing');
-        await ffmpeg.exec(args);
-        
-        // 4. Read output, create URL, and trigger download
-        const data = await ffmpeg.readFile('preview.mp4');
-        const blob = new Blob([data], { type: 'video/mp4' });
-        const objectUrl = URL.createObjectURL(blob);
-        setUrl(objectUrl);
-        setPhase('done');
-        setRenderProgress(100);
-        console.log('[FFmpeg Preview] Amostra renderizada com sucesso! Iniciando download...');
-        triggerDownload(objectUrl, 'DreamDirector_Preview.mp4');
+          console.log(`[FFmpeg Preview] ✓ ${trimmedFileName} criado`);
+        }
+      }
+
+      // 2. Carregar áudio
+      const hasAudio = !!projectConfig.audioFile;
+      if (hasAudio) {
+        console.log('[FFmpeg Preview] 🎵 Escrevendo arquivo de áudio...');
+        const mbuf = new Uint8Array(await projectConfig.audioFile.arrayBuffer());
+        await ffmpeg.writeFile('music.mp3', mbuf);
+        console.log('[FFmpeg Preview] ✓ Áudio carregado');
+      }
+
+      // 3. CONCAT os vídeos trimados
+      setCurrentPhase('concatenating');
+      console.log('[FFmpeg Preview] 🔗 Concatenando vídeos trimados...');
+
+      const numScenes = sortedScenes.length;
+      let filterComplex = '';
+
+      for (let i = 0; i < numScenes; i++) {
+        filterComplex += `[${i}:v]`;
+      }
+      filterComplex += `concat=n=${numScenes}:v=1:a=0[outv]`;
+
+      const args: string[] = [];
+
+      // Inputs dos vídeos trimados (não originais)
+      for (let i = 0; i < numScenes; i++) {
+        args.push('-i', `trimmed${i}.mp4`);
+      }
+
+      if (hasAudio) {
+        args.push('-i', 'music.mp3');
+      }
+
+      args.push('-filter_complex', filterComplex);
+      args.push('-map', '[outv]');
+
+      if (hasAudio) {
+        const audioInputIndex = numScenes;
+        args.push('-map', `${audioInputIndex}:a:0`);
+      }
+
+      // ⚡ Encoding leve para amostra
+      args.push('-c:v', 'libx264');
+      args.push('-preset', 'ultrafast');
+      args.push('-crf', '28');
+      args.push('-pix_fmt', 'yuv420p');
+      args.push('-c:a', 'aac');
+      args.push('-b:a', '128k');
+      args.push('-shortest');
+      args.push('-movflags', '+faststart');
+      args.push('-y', 'preview.mp4');
+
+      console.log('[FFmpeg Preview] ⚡ Usando: Trim (copy) + Concat + H.264 Ultrafast');
+      console.log('[FFmpeg Preview] Comando:', args.join(' '));
+
+      setCurrentPhase('finalizing');
+      const startTime = Date.now();
+      await ffmpeg.exec(args);
+      const elapsedTime = Date.now() - startTime;
+
+      console.log(`[FFmpeg Preview] ✅ Amostra pronta em ${(elapsedTime / 1000).toFixed(1)}s`);
+
+      // 4. Read output
+      const data = await ffmpeg.readFile('preview.mp4');
+      const sizeInMB = (data.length / 1024 / 1024).toFixed(2);
+      console.log(`[FFmpeg Preview] 📦 Arquivo: ${sizeInMB} MB`);
+
+      const blob = new Blob([data], { type: 'video/mp4' });
+      const href = URL.createObjectURL(blob);
+      setUrl(href);
+      setPhase('done');
+      setRenderProgress(100);
+      console.log('[FFmpeg Preview] ========== AMOSTRA COM TRIM (5seg/vídeo) ✅ ==========');
+      triggerDownload(href, 'DreamDirector_Preview.mp4');
 
     } catch (e: any) {
-        console.error('[FFmpeg Preview Error]', e);
-        setErr(`Falha na renderização da amostra: ${e?.message ?? String(e)}`);
-        setPhase('error');
+      console.error('[FFmpeg Preview Error]', e);
+      setErr(`Falha na amostra: ${e?.message ?? String(e)}`);
+      setPhase('error');
     }
   };
 

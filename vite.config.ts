@@ -14,4 +14,18 @@ export default defineConfig({
       'Cross-Origin-Embedder-Policy': 'require-corp',
     },
   },
+  // Otimizações para FFmpeg e WASM
+  optimizeDeps: {
+    exclude: ['@ffmpeg/ffmpeg', '@ffmpeg/util'],
+  },
+  build: {
+    // Melhor suporte para WASM
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          ffmpeg: ['@ffmpeg/ffmpeg'],
+        },
+      },
+    },
+  },
 });
