@@ -123,6 +123,7 @@ const StyleUploader: React.FC<{
   }, [styleSourceFile]);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Fix: Property 'files' does not exist on type 'EventTarget & HTMLInputElement'.
     const file = (e.target as any).files?.[0];
     if (file) {
       try {
@@ -144,6 +145,7 @@ const StyleUploader: React.FC<{
       }
     }
     if (inputRef.current) {
+      // Fix: Property 'value' does not exist on type 'HTMLInputElement'.
       (inputRef.current as any).value = '';
     }
   };
@@ -183,6 +185,7 @@ const StyleUploader: React.FC<{
       ) : (
         <button
           type="button"
+          // Fix: Property 'click' does not exist on type 'HTMLInputElement'.
           onClick={() => (inputRef.current as any)?.click()}
           className="w-32 h-32 bg-gray-700/50 hover:bg-gray-700 border-2 border-dashed border-gray-600 rounded-lg flex flex-col items-center justify-center text-gray-400 hover:text-white transition-colors flex-shrink-0">
           <UploadIcon className="w-8 h-8" />
@@ -295,6 +298,7 @@ const ProjectSetup: React.FC<ProjectSetupProps> = ({
   const handleTechnicalSheetChange = (
     e: React.ChangeEvent<HTMLTextAreaElement>,
   ) => {
+    // Fix: Property 'value' does not exist on type 'EventTarget & HTMLTextAreaElement'.
     const newText = (e.target as any).value;
     setTechnicalSheet(newText);
     const {aspectRatio, resolution} = parseConfigFromSheet(newText);
@@ -303,6 +307,7 @@ const ProjectSetup: React.FC<ProjectSetupProps> = ({
   };
 
   const handleCharacterImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Fix: Property 'files' does not exist on type 'EventTarget & HTMLInputElement'.
     const files = (e.target as any).files;
     if (!files || files.length === 0) return;
 
@@ -329,6 +334,7 @@ const ProjectSetup: React.FC<ProjectSetupProps> = ({
     }
 
     if (characterImageInputRef.current) {
+        // Fix: Property 'value' does not exist on type 'HTMLInputElement'.
         (characterImageInputRef.current as any).value = '';
     }
   };
@@ -439,6 +445,7 @@ const ProjectSetup: React.FC<ProjectSetupProps> = ({
                     {characterImages.length < 5 && (
                         <button
                             type="button"
+                            // Fix: Property 'click' does not exist on type 'HTMLInputElement'.
                             onClick={() => (characterImageInputRef.current as any)?.click()}
                             className="w-24 h-24 bg-gray-700/50 hover:bg-gray-700 border-2 border-dashed border-gray-600 rounded-lg flex flex-col items-center justify-center text-gray-400 hover:text-white transition-colors flex-shrink-0">
                             <UploadIcon className="w-8 h-8" />

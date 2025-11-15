@@ -389,13 +389,16 @@ const PromptForm: React.FC<PromptFormProps> = ({
   useEffect(() => {
     const textarea = textareaRef.current;
     if (textarea) {
+      // Fix: Property 'style' does not exist on type 'HTMLTextAreaElement'.
       (textarea as any).style.height = 'auto';
+      // Fix: Property 'style' and 'scrollHeight' do not exist on type 'HTMLTextAreaElement'.
       (textarea as any).style.height = `${(textarea as any).scrollHeight}px`;
     }
   }, [prompt]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
+      // Fix: Property 'contains' does not exist on type 'HTMLDivElement'.
       if (
         modeSelectorRef.current &&
         !(modeSelectorRef.current as any).contains(event.target as any)

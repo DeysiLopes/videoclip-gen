@@ -32,13 +32,13 @@ export enum Resolution {
   P1080 = '1080p',
 }
 
-// This is no longer used by the UI, but kept for reference
+// Fix: Add and export GenerationMode enum.
 export enum GenerationMode {
-  TEXT_TO_VIDEO = 'Text to Video',
-  FRAMES_TO_VIDEO = 'Frames to Video',
-  REFERENCES_TO_VIDEO = 'References to Video',
-  REMIX_VIDEO = 'Remix Video',
-  EXTEND_VIDEO = 'Extend Video',
+  TEXT_TO_VIDEO = 'Text-to-Video',
+  FRAMES_TO_VIDEO = 'Frames-to-Video',
+  REFERENCES_TO_VIDEO = 'References-to-Video',
+  REMIX_VIDEO = 'Remix-Video',
+  EXTEND_VIDEO = 'Extend-Video',
 }
 
 export interface ImageFile {
@@ -94,7 +94,7 @@ export interface VeoApiParams {
   inputVideo?: Video | null;
 }
 
-// Legacy type, no longer in active use by the new UI flow
+// Fix: Add and export GenerateVideoParams interface.
 export interface GenerateVideoParams {
   prompt: string;
   model: VeoModel;

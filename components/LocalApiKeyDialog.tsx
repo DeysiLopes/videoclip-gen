@@ -32,8 +32,10 @@ const LocalApiKeyDialog: React.FC<LocalApiKeyDialogProps> = ({ onSave }) => {
           <input
             type="password"
             value={apiKey}
-            // Fix: Cast to any to access value property, due to a potential TS configuration issue.
-            onChange={(e) => setApiKey((e.target as any).value)}
+            // Fix: Property 'value' does not exist on type 'EventTarget & HTMLInputElement'.
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+              setApiKey((e.target as any).value)
+            }
             placeholder="Insira sua Chave de API"
             className="w-full bg-gray-900 border border-gray-600 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
           />

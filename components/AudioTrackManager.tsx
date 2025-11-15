@@ -21,12 +21,13 @@ const AudioTrackManager: React.FC<AudioTrackManagerProps> = ({
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    // Fix: Cast to any to access files property, due to a potential TS configuration issue.
+    // Fix: Property 'files' does not exist on type 'EventTarget & HTMLInputElement'.
     const file = (e.target as any).files?.[0];
     if (file) {
       onUpload(file);
     }
      if (inputRef.current) {
+      // Fix: Property 'value' does not exist on type 'HTMLInputElement'.
       (inputRef.current as any).value = '';
     }
   };
@@ -59,6 +60,7 @@ const AudioTrackManager: React.FC<AudioTrackManagerProps> = ({
     <div className="mb-4 w-full">
       <button
         type="button"
+        // Fix: Property 'click' does not exist on type 'HTMLInputElement'.
         onClick={() => (inputRef.current as any)?.click()}
         className="w-full p-4 bg-gray-700/50 hover:bg-gray-700 border-2 border-dashed border-gray-600 rounded-lg flex items-center justify-center text-gray-400 hover:text-white transition-colors"
       >

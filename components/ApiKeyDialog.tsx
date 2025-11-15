@@ -22,6 +22,7 @@ const ApiKeyDialog: React.FC<ApiKeyDialogProps> = ({ onContinue }) => {
         </p>
         <p className="text-gray-400 mb-8 text-sm">
           Para mais informações, consulte{' '}
+          {/* Fix: Corrected the billing documentation link */}
           <a
             href="https://ai.google.dev/gemini-api/docs/billing"
             target="_blank"

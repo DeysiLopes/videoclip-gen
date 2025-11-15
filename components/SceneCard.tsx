@@ -58,7 +58,9 @@ const SceneCard: React.FC<SceneCardProps> = ({
 
   useEffect(() => {
     if (isEditing && textareaRef.current) {
+      // Fix: Property 'style' does not exist on type 'HTMLTextAreaElement'.
       (textareaRef.current as any).style.height = 'auto';
+      // Fix: Property 'style', 'scrollHeight' does not exist on type 'HTMLTextAreaElement'.
       (textareaRef.current as any).style.height = `${(textareaRef.current as any).scrollHeight}px`;
     }
   }, [prompt, isEditing]);
@@ -72,14 +74,20 @@ const SceneCard: React.FC<SceneCardProps> = ({
       const relativeTime = (masterCurrentTime - scene.timestamp) % scene.duration;
       
       // Seek only if the difference is significant to prevent stuttering from minor updates
+      // Fix: Property 'currentTime' does not exist on type 'HTMLVideoElement'.
       if (Math.abs((video as any).currentTime - relativeTime) > 0.2) {
+        // Fix: Property 'currentTime' does not exist on type 'HTMLVideoElement'.
         (video as any).currentTime = relativeTime;
       }
+      // Fix: Property 'paused' does not exist on type 'HTMLVideoElement'.
       if ((video as any).paused) {
+        // Fix: Property 'play' does not exist on type 'HTMLVideoElement'.
         (video as any).play().catch(e => console.error("Video play failed:", e));
       }
     } else {
+      // Fix: Property 'paused' does not exist on type 'HTMLVideoElement'.
       if (!(video as any).paused) {
+        // Fix: Property 'pause' does not exist on type 'HTMLVideoElement'.
         (video as any).pause();
       }
     }
@@ -111,7 +119,7 @@ const SceneCard: React.FC<SceneCardProps> = ({
   };
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    // Fix: Cast to any to access files property, due to a potential TS configuration issue.
+    // Fix: Property 'files' does not exist on type 'EventTarget & HTMLInputElement'.
     const file = (e.target as any).files?.[0];
     if (!file) return;
 
@@ -145,6 +153,7 @@ const SceneCard: React.FC<SceneCardProps> = ({
     }
 
     if (uploadInputRef.current) {
+      // Fix: Property 'value' does not exist on type 'HTMLInputElement'.
       (uploadInputRef.current as any).value = '';
     }
   };
@@ -166,8 +175,10 @@ const SceneCard: React.FC<SceneCardProps> = ({
           <textarea
             ref={textareaRef}
             value={prompt}
-            // Fix: Cast to any to access value property, due to a potential TS configuration issue.
-            onChange={(e) => setPrompt((e.target as any).value)}
+            // Fix: Property 'value' does not exist on type 'EventTarget & HTMLTextAreaElement'.
+            onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
+              setPrompt((e.target as any).value)
+            }
             placeholder="Descreva esta cena... ex: 'CENA 1 (0:00 – 0:35) - Uma cantora aparece...'"
             className="w-full bg-gray-700/50 p-2 rounded-md resize-none text-gray-200 placeholder-gray-500 max-h-40"
             rows={3}
@@ -248,6 +259,7 @@ const SceneCard: React.FC<SceneCardProps> = ({
               accept="video/*"
             />
             <button
+              // Fix: Property 'click' does not exist on type 'HTMLInputElement'.
               onClick={() => (uploadInputRef.current as any)?.click()}
               className="px-4 py-1.5 bg-gray-600 rounded-md text-sm font-semibold hover:bg-gray-700 flex items-center gap-2">
               <UploadIcon className="w-4 h-4"/>
