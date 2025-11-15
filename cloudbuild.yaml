@@ -1,41 +1,105 @@
 # cloudbuild.yaml
-# This file defines the Continuous Integration/Deployment (CI/CD) pipeline for Google Cloud Build.
+# CI/CD Pipeline para DreamDirector AI
+# Dispara automaticamente em push na branch main
 
 steps:
-  # Step 1: Build the Docker container image.
-  # This command uses the Dockerfile in the current directory to build an image.
-  # The image is tagged with the location of your Artifact Registry, your project ID, and a name.
-  # $PROJECT_ID is a substitution variable automatically provided by Cloud Build.
+  # Step 0: Setup - Definir variáveis
   - name: 'gcr.io/cloud-builders/docker'
-    args: ['build', '-t', 'us-central1-docker.pkg.dev/$PROJECT_ID/dreamdirector-repo/dreamdirector-ai:latest', '.']
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        echo "🚀 Iniciando pipeline CI/CD..."
+        echo "Commit SHA: $COMMIT_SHA"
+        echo "Branch: $BRANCH_NAME"
+    id: 'Setup'
+
+  # Step 1: Build the Docker container image
+  # Usa commit SHA para versionamento
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-t'
+      - 'us-central1-docker.pkg.dev/$PROJECT_ID/dreamdirector-repo/dreamdirector-ai:latest'
+      - '-t'
+      - 'us-central1-docker.pkg.dev/$PROJECT_ID/dreamdirector-repo/dreamdirector-ai:$SHORT_SHA'
+      - '-t'
+      - 'us-central1-docker.pkg.dev/$PROJECT_ID/dreamdirector-repo/dreamdirector-ai:$COMMIT_SHA'
+      - '.'
     id: 'Build'
+    waitFor: ['Setup']
 
-  # Step 2: Push the container image to Google Artifact Registry.
-  # Artifact Registry is the recommended place to store your container images in GCP.
+  # Step 2: Push the container image to Google Artifact Registry
   - name: 'gcr.io/cloud-builders/docker'
-    args: ['push', 'us-central1-docker.pkg.dev/$PROJECT_ID/dreamdirector-repo/dreamdirector-ai:latest']
-    id: 'Push'
+    args:
+      - 'push'
+      - 'us-central1-docker.pkg.dev/$PROJECT_ID/dreamdirector-repo/dreamdirector-ai:latest'
+    id: 'Push-Latest'
+    waitFor: ['Build']
 
-  # Step 3: Deploy the container image to Google Cloud Run.
-  # Cloud Run is a serverless platform that automatically scales your container.
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - 'us-central1-docker.pkg.dev/$PROJECT_ID/dreamdirector-repo/dreamdirector-ai:$SHORT_SHA'
+    id: 'Push-SHA'
+    waitFor: ['Build']
+
+  # Step 3: Deploy to Cloud Run
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     entrypoint: gcloud
     args:
       - 'run'
       - 'deploy'
-      - 'dreamdirector-ai' # This will be the name of your service in Cloud Run.
-      - '--image=us-central1-docker.pkg.dev/$PROJECT_ID/dreamdirector-repo/dreamdirector-ai:latest' # The image to deploy.
-      - '--region=us-central1'   # The region to deploy the service to. Change if needed.
-      - '--platform=managed'     # Use the fully-managed Cloud Run environment.
-      - '--allow-unauthenticated' # Make the service publicly accessible.
+      - 'dreamdirector-ai'
+      - '--image=us-central1-docker.pkg.dev/$PROJECT_ID/dreamdirector-repo/dreamdirector-ai:latest'
+      - '--region=us-central1'
+      - '--platform=managed'
+      - '--allow-unauthenticated'
+      - '--memory=2Gi'
+      - '--cpu=2'
+      - '--timeout=3600'
+      - '--max-instances=100'
+      - '--min-instances=1'
+      - '--set-env-vars=NODE_ENV=production'
     id: 'Deploy'
+    waitFor: ['Push-Latest', 'Push-SHA']
 
-# Store the name of the pushed image for potential use in other build steps or for build summary.
+  # Step 4: Health check
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: bash
+    args:
+      - '-c'
+      - |
+        echo "⏳ Aguardando deployment ficar pronto..."
+        sleep 10
+        
+        SERVICE_URL=$(gcloud run services describe dreamdirector-ai --region us-central1 --format='value(status.url)')
+        echo "🌐 Service URL: $SERVICE_URL"
+        
+        echo "🔍 Testando health check..."
+        if curl -f "$SERVICE_URL/health"; then
+          echo "✅ Health check passou!"
+        else
+          echo "❌ Health check falhou!"
+          exit 1
+        fi
+    id: 'HealthCheck'
+    waitFor: ['Deploy']
+
+# Store the name of the pushed image for potential use in other build steps or for build summary
 images:
   - 'us-central1-docker.pkg.dev/$PROJECT_ID/dreamdirector-repo/dreamdirector-ai:latest'
+  - 'us-central1-docker.pkg.dev/$PROJECT_ID/dreamdirector-repo/dreamdirector-ai:$SHORT_SHA'
 
-# Configuration options for the build itself.
+# Configuration options for the build itself
 options:
-  # This is the critical fix for the error you encountered.
-  # It tells Cloud Build to send logs directly to Cloud Logging instead of a storage bucket.
+  # Log directly to Cloud Logging
   logging: CLOUD_LOGGING_ONLY
+  # Build should be fast with this machine type
+  machineType: 'N1_HIGHCPU_8'
+
+# Trigger: automatically deploy on push to main branch
+# This should be configured in Cloud Build trigger settings:
+# Branch: ^main$
+# Filename: cloudbuild.yaml
+
