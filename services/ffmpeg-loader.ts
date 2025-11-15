@@ -21,7 +21,7 @@ export async function getFFmpeg() {
 
   try {
     console.log('[FFmpeg Debug] Loading core from CDN...');
-    const baseURL = 'https://unpkg.com/@ffmpeg/core-mt@0.12.6/dist/esm';
+    const baseURL = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core-mt@0.12.6/dist/esm';
 
     console.log('[FFmpeg Debug] Tentando carregar com toBlobURL...');
     try {
