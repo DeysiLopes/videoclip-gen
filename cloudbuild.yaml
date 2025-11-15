@@ -7,13 +7,13 @@ steps:
   # The image is tagged with the location of your Artifact Registry, your project ID, and a name.
   # $PROJECT_ID is a substitution variable automatically provided by Cloud Build.
   - name: 'gcr.io/cloud-builders/docker'
-    args: ['build', '-t', 'us-central1-docker.pkg.dev/$PROJECT_ID/dreamdirector-repo/dreamdirector-ai:latest', '.']
+    args: ['build', '-t', 'us-central1-docker.pkg.dev/$PROJECT_ID/videoclip-gen-repo/videoclip-gen:latest', '.']
     id: 'Build'
 
   # Step 2: Push the container image to Google Artifact Registry.
   # Artifact Registry is the recommended place to store your container images in GCP.
   - name: 'gcr.io/cloud-builders/docker'
-    args: ['push', 'us-central1-docker.pkg.dev/$PROJECT_ID/dreamdirector-repo/dreamdirector-ai:latest']
+    args: ['push', 'us-central1-docker.pkg.dev/$PROJECT_ID/videoclip-gen-repo/videoclip-gen:latest']
     id: 'Push'
 
   # Step 3: Deploy the container image to Google Cloud Run.
@@ -23,8 +23,8 @@ steps:
     args:
       - 'run'
       - 'deploy'
-      - 'dreamdirector-ai' # This will be the name of your service in Cloud Run.
-      - '--image=us-central1-docker.pkg.dev/$PROJECT_ID/dreamdirector-repo/dreamdirector-ai:latest' # The image to deploy.
+      - 'videoclip-gen' # This will be the name of your service in Cloud Run.
+      - '--image=us-central1-docker.pkg.dev/$PROJECT_ID/videoclip-gen-repo/videoclip-gen:latest' # The image to deploy.
       - '--region=us-central1'   # The region to deploy the service to. Change if needed.
       - '--platform=managed'     # Use the fully-managed Cloud Run environment.
       - '--allow-unauthenticated' # Make the service publicly accessible.
@@ -32,7 +32,7 @@ steps:
 
 # Store the name of the pushed image for potential use in other build steps or for build summary.
 images:
-  - 'us-central1-docker.pkg.dev/$PROJECT_ID/dreamdirector-repo/dreamdirector-ai:latest'
+  - 'us-central1-docker.pkg.dev/$PROJECT_ID/videoclip-gen-repo/videoclip-gen:latest'
 
 # Configuration options for the build itself.
 options:
