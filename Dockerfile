@@ -9,9 +9,8 @@ WORKDIR /app
 # Copiar package files
 COPY package*.json ./
 
-# Instalar dependências
-RUN npm ci --only=production && \
-    npm cache clean --force
+# Instalar TODAS as dependências (incluindo devDependencies para build)
+RUN npm install
 
 # Copiar source code
 COPY . .
@@ -20,21 +19,18 @@ COPY . .
 RUN npm run build
 
 # Stage 2: Runtime stage (produção)
-FROM node:18-alpine
+FROM nginx:alpine
 
-WORKDIR /app
+WORKDIR /usr/share/nginx/html
 
-# Instalar nginx para servir a app
-RUN apk add --no-cache nginx
+# Remover default nginx config
+RUN rm -rf /etc/nginx/conf.d/*
 
 # Copiar arquivos de build do stage anterior
-COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/dist ./
 
 # Copiar nginx config
 COPY nginx.conf /etc/nginx/nginx.conf
-
-# Copiar package.json para referência
-COPY package*.json ./
 
 # Expor porta
 EXPOSE 8080
@@ -45,4 +41,6 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
 
 # Start nginx
 CMD ["nginx", "-g", "daemon off;"]
+
+
 

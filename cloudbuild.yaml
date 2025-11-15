@@ -1,5 +1,5 @@
 # cloudbuild.yaml
-# CI/CD Pipeline para DreamDirector AI
+# CI/CD Pipeline para videoclip-gen
 # Dispara automaticamente em push na branch main
 
 steps:
@@ -20,11 +20,11 @@ steps:
     args:
       - 'build'
       - '-t'
-      - 'us-central1-docker.pkg.dev/$PROJECT_ID/dreamdirector-repo/dreamdirector-ai:latest'
+      - 'us-central1-docker.pkg.dev/$PROJECT_ID/videoclip-gen-repo/videoclip-gen:latest'
       - '-t'
-      - 'us-central1-docker.pkg.dev/$PROJECT_ID/dreamdirector-repo/dreamdirector-ai:$SHORT_SHA'
+      - 'us-central1-docker.pkg.dev/$PROJECT_ID/videoclip-gen-repo/videoclip-gen:$SHORT_SHA'
       - '-t'
-      - 'us-central1-docker.pkg.dev/$PROJECT_ID/dreamdirector-repo/dreamdirector-ai:$COMMIT_SHA'
+      - 'us-central1-docker.pkg.dev/$PROJECT_ID/videoclip-gen-repo/videoclip-gen:$COMMIT_SHA'
       - '.'
     id: 'Build'
     waitFor: ['Setup']
@@ -33,14 +33,14 @@ steps:
   - name: 'gcr.io/cloud-builders/docker'
     args:
       - 'push'
-      - 'us-central1-docker.pkg.dev/$PROJECT_ID/dreamdirector-repo/dreamdirector-ai:latest'
+      - 'us-central1-docker.pkg.dev/$PROJECT_ID/videoclip-gen-repo/videoclip-gen:latest'
     id: 'Push-Latest'
     waitFor: ['Build']
 
   - name: 'gcr.io/cloud-builders/docker'
     args:
       - 'push'
-      - 'us-central1-docker.pkg.dev/$PROJECT_ID/dreamdirector-repo/dreamdirector-ai:$SHORT_SHA'
+      - 'us-central1-docker.pkg.dev/$PROJECT_ID/videoclip-gen-repo/videoclip-gen:$SHORT_SHA'
     id: 'Push-SHA'
     waitFor: ['Build']
 
@@ -50,8 +50,8 @@ steps:
     args:
       - 'run'
       - 'deploy'
-      - 'dreamdirector-ai'
-      - '--image=us-central1-docker.pkg.dev/$PROJECT_ID/dreamdirector-repo/dreamdirector-ai:latest'
+      - 'videoclip-gen'
+      - '--image=us-central1-docker.pkg.dev/$PROJECT_ID/videoclip-gen-repo/videoclip-gen:latest'
       - '--region=us-central1'
       - '--platform=managed'
       - '--allow-unauthenticated'
@@ -73,7 +73,7 @@ steps:
         echo "⏳ Aguardando deployment ficar pronto..."
         sleep 10
         
-        SERVICE_URL=$(gcloud run services describe dreamdirector-ai --region us-central1 --format='value(status.url)')
+        SERVICE_URL=$(gcloud run services describe videoclip-gen --region us-central1 --format='value(status.url)')
         echo "🌐 Service URL: $SERVICE_URL"
         
         echo "🔍 Testando health check..."
@@ -88,8 +88,8 @@ steps:
 
 # Store the name of the pushed image for potential use in other build steps or for build summary
 images:
-  - 'us-central1-docker.pkg.dev/$PROJECT_ID/dreamdirector-repo/dreamdirector-ai:latest'
-  - 'us-central1-docker.pkg.dev/$PROJECT_ID/dreamdirector-repo/dreamdirector-ai:$SHORT_SHA'
+  - 'us-central1-docker.pkg.dev/$PROJECT_ID/videoclip-gen-repo/videoclip-gen:latest'
+  - 'us-central1-docker.pkg.dev/$PROJECT_ID/videoclip-gen-repo/videoclip-gen:$SHORT_SHA'
 
 # Configuration options for the build itself
 options:
