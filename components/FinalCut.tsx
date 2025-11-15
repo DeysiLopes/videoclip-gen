@@ -4,7 +4,7 @@
 */
 import React, {useCallback, useEffect, useRef, useState} from 'react';
 import {getFFmpeg} from '../services/ffmpeg-loader';
-import {AspectRatio, ProjectConfig, Scene, SceneStatus} from '../types';
+import {ProjectConfig, Scene, SceneStatus} from '../types';
 import RenderProgressDialog from './RenderProgressDialog';
 import VisualTimeline from './VisualTimeline';
 
@@ -39,6 +39,20 @@ const FinalCut: React.FC<FinalCutProps> = ({
   const [err, setErr] = useState<string|null>(null);
   const [url, setUrl] = useState<string|null>(null);
   const [renderProgress, setRenderProgress] = useState(0);
+  const [invalidSceneNumbers, setInvalidSceneNumbers] = useState<number[]>([]);
+
+
+  // Effect to check for scenes missing video data
+  useEffect(() => {
+    const scenesWithoutBlob = sortedScenes
+        .map(s => {
+            const sceneIndex = scenes.findIndex(os => os.id === s.id);
+            return { scene: s, sceneNumber: sceneIndex + 1 };
+        })
+        .filter(item => !item.scene.videoBlob)
+        .map(item => item.sceneNumber);
+    setInvalidSceneNumbers(scenesWithoutBlob);
+  }, [scenes, sortedScenes]);
 
   // Effect to find the active scene based on audio time
   useEffect(() => {
@@ -103,10 +117,12 @@ const FinalCut: React.FC<FinalCutProps> = ({
         const scene = sortedScenes[i];
         if (scene.videoBlob) {
           const fileName = `in${i}.mp4`;
+          console.log(`[FFmpeg Debug] Escrevendo arquivo ${fileName}, tamanho do blob: ${scene.videoBlob.size} bytes`);
           const buf = new Uint8Array(await scene.videoBlob.arrayBuffer());
           await ffmpeg.writeFile(fileName, buf);
         } else {
-          throw new Error(`Scene ${i + 1} is missing video data.`);
+           const originalSceneIndex = scenes.findIndex(s => s.id === scene.id);
+          throw new Error(`Cena ${originalSceneIndex + 1} está sem dados de vídeo (blob). Por favor, gere novamente.`);
         }
       }
       
@@ -176,7 +192,7 @@ const FinalCut: React.FC<FinalCutProps> = ({
       setPhase('done');
     } catch (e: any) {
       console.error('[FFmpeg Error]', e);
-      setErr(String(e?.message ?? e));
+      setErr(`Falha na renderização: ${e?.message ?? String(e)}`);
       setPhase('error');
     }
   };
@@ -219,6 +235,7 @@ const FinalCut: React.FC<FinalCutProps> = ({
   }, [sortedScenes]);
 
   const isRendering = phase === 'loading' || phase === 'rendering';
+  const canRender = invalidSceneNumbers.length === 0;
   const canDownload = phase === 'done' && !!url;
 
   const renderButtonText = {
@@ -310,7 +327,7 @@ const FinalCut: React.FC<FinalCutProps> = ({
         <div className="flex items-center gap-4">
             <button
               onClick={handleRender}
-              disabled={isRendering}
+              disabled={isRendering || !canRender}
               className="px-8 py-4 bg-indigo-600 text-lg rounded-lg font-bold hover:bg-indigo-700 transition-colors disabled:bg-gray-600 disabled:cursor-not-allowed">
               {renderButtonText}
             </button>
@@ -321,7 +338,17 @@ const FinalCut: React.FC<FinalCutProps> = ({
                 Baixar
             </button>
         </div>
-        {phase === 'error' && (
+        {!canRender ? (
+            <div className="text-sm text-yellow-400 mt-4 text-center max-w-md p-3 bg-yellow-900/20 border border-yellow-700/50 rounded-lg">
+                <p className="font-bold">Renderização Bloqueada</p>
+                <p className="mt-1">As seguintes cenas estão sem o arquivo de vídeo. Por favor, volte ao storyboard e gere-as novamente:</p>
+                <ul className="list-disc list-inside mt-2 font-semibold">
+                    {invalidSceneNumbers.map((sceneNumber) => (
+                    <li key={sceneNumber}>Cena {sceneNumber}</li>
+                    ))}
+                </ul>
+            </div>
+        ) : phase === 'error' && (
             <p className="text-sm text-red-400 mt-2 text-center max-w-md">{err}</p>
         )}
         <p className="text-xs text-gray-500 text-center mt-2">

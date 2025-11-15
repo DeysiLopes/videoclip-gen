@@ -4,10 +4,6 @@
 */
 import { FFmpeg } from '@ffmpeg/ffmpeg';
 import { toBlobURL } from '@ffmpeg/util';
-// Import URLs for the multi-threaded FFmpeg core files
-import coreURLPath from '@ffmpeg/core-mt/dist/esm/ffmpeg-core.js?url';
-import wasmURLPath from '@ffmpeg/core-mt/dist/esm/ffmpeg-core.wasm?url';
-import workerURLPath from '@ffmpeg/core-mt/dist/esm/ffmpeg-core.worker.js?url';
 
 let ffmpegSingleton: FFmpeg | null = null;
 
@@ -20,17 +16,18 @@ export async function getFFmpeg() {
   const ffmpeg = new FFmpeg();
 
   try {
-    console.log('[FFmpeg Debug] Loading core from imported URLs...');
+    console.log('[FFmpeg Debug] Loading core from CDN...');
+    const baseURL = 'https://unpkg.com/@ffmpeg/core-mt@0.12.6/dist/esm';
     await ffmpeg.load({
-      coreURL:   await toBlobURL(coreURLPath, 'text/javascript'),
-      wasmURL:   await toBlobURL(wasmURLPath, 'application/wasm'),
-      workerURL: await toBlobURL(workerURLPath, 'text/javascript'),
+      coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
+      wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+      workerURL: await toBlobURL(`${baseURL}/ffmpeg-core.worker.js`, 'text/javascript'),
     });
     console.log('[FFmpeg Debug] FFmpeg core loaded successfully.');
   } catch (e) {
     console.error('[FFmpeg Debug] FFmpeg core loading failed.', e);
-    ffmpegSingleton = null; // Reset on failure
-    throw e;
+    ffmpegSingleton = null;
+    throw new Error(`Falha ao carregar FFmpeg: ${e instanceof Error ? e.message : 'Erro desconhecido'}`);
   }
   
   ffmpegSingleton = ffmpeg;

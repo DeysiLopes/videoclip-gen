@@ -2,7 +2,7 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
 */
-import React, {useCallback, useEffect, useRef, useState} from 'react';
+import React, {useEffect, useRef, useState} from 'react';
 import {
   AspectRatio,
   ImageFile,
@@ -109,9 +109,10 @@ const StyleUploader: React.FC<{
   onSelect: (frame: ImageFile, sourceFile: File) => void;
   onRemove: () => void;
   styleSourceFile: File | null;
+  styleSourceUrl: string | null;
   label: string;
   description: string;
-}> = ({onSelect, onRemove, styleSourceFile, label, description}) => {
+}> = ({onSelect, onRemove, styleSourceFile, styleSourceUrl, label, description}) => {
   const inputRef = useRef<HTMLInputElement>(null);
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     // Fix: Cast to any to access files property, due to a potential TS configuration issue.
@@ -148,11 +149,11 @@ const StyleUploader: React.FC<{
         <h3 className="text-lg font-semibold text-white">{label}</h3>
         <p className="text-gray-400 text-sm mt-1">{description}</p>
       </div>
-      {styleSourceFile ? (
+      {styleSourceFile && styleSourceUrl ? (
         <div className="relative w-32 h-32 group flex-shrink-0">
           {styleSourceFile.type.startsWith('video/') ? (
             <video
-              src={URL.createObjectURL(styleSourceFile)}
+              src={styleSourceUrl}
               muted
               loop
               autoPlay
@@ -161,7 +162,7 @@ const StyleUploader: React.FC<{
             />
           ) : (
             <img
-              src={URL.createObjectURL(styleSourceFile)}
+              src={styleSourceUrl}
               alt="preview"
               className="w-full h-full object-cover rounded-lg"
             />
@@ -236,8 +237,10 @@ const ProjectSetup: React.FC<ProjectSetupProps> = ({
   );
 
   const [characterImages, setCharacterImages] = useState<ImageFile[]>([]);
+  const [characterImageUrls, setCharacterImageUrls] = useState<string[]>([]);
   const [styleImage, setStyleImage] = useState<ImageFile | null>(null);
   const [styleSourceFile, setStyleSourceFile] = useState<File | null>(null);
+  const [styleSourceUrl, setStyleSourceUrl] = useState<string | null>(null);
   const [audioFile, setAudioFile] = useState<File | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const characterImageInputRef = useRef<HTMLInputElement>(null);
@@ -260,24 +263,51 @@ const ProjectSetup: React.FC<ProjectSetupProps> = ({
         setStyleSourceFile(null);
       }
       setAudioFile(initialConfig.audioFile);
-      setAudioUrl(initialConfig.audioUrl);
     }
   }, [initialConfig]);
+  
+  // Create and revoke object URLs for character image previews to prevent memory leaks
+  useEffect(() => {
+    const urls = characterImages.map(img => URL.createObjectURL(img.file));
+    setCharacterImageUrls(urls);
+    return () => {
+      urls.forEach(url => URL.revokeObjectURL(url));
+    };
+  }, [characterImages]);
 
-  const handleAudioUpload = useCallback(
-    (file: File) => {
-      if (audioUrl) URL.revokeObjectURL(audioUrl);
-      setAudioFile(file);
-      setAudioUrl(URL.createObjectURL(file));
-    },
-    [audioUrl],
-  );
-
-  const handleRemoveAudio = useCallback(() => {
-    if (audioUrl) URL.revokeObjectURL(audioUrl);
-    setAudioFile(null);
+  // Create and revoke object URLs for style image/video previews to prevent memory leaks
+  useEffect(() => {
+    if (styleSourceFile) {
+      const url = URL.createObjectURL(styleSourceFile);
+      setStyleSourceUrl(url);
+      return () => {
+        URL.revokeObjectURL(url);
+      };
+    }
+    setStyleSourceUrl(null); // Clear URL if file is removed
+  }, [styleSourceFile]);
+  
+  // Centralized effect for audio URL management to prevent memory leaks
+  useEffect(() => {
+    if (audioFile) {
+        const url = URL.createObjectURL(audioFile);
+        setAudioUrl(url);
+        return () => {
+            URL.revokeObjectURL(url);
+        };
+    }
+    // If audioFile is null, url will be revoked by previous effect cleanup,
+    // so just clear the state.
     setAudioUrl(null);
-  }, [audioUrl]);
+  }, [audioFile]);
+
+  const handleAudioUpload = (file: File) => {
+    setAudioFile(file);
+  };
+
+  const handleRemoveAudio = () => {
+    setAudioFile(null);
+  };
 
   const handleStyleSelect = (frame: ImageFile, sourceFile: File) => {
     setStyleImage(frame);
@@ -382,10 +412,10 @@ const ProjectSetup: React.FC<ProjectSetupProps> = ({
                 <h3 className="text-lg font-semibold text-white">Personagem Principal</h3>
                 <p className="text-gray-400 text-sm mt-1">Envie até 5 imagens do personagem principal para melhor semelhança.</p>
                 <div className="mt-4 flex flex-wrap items-center gap-4">
-                    {characterImages.map((image, index) => (
-                        <div key={index} className="relative w-24 h-24 group flex-shrink-0">
+                    {characterImageUrls.map((url, index) => (
+                        <div key={`${characterImages[index].file.name}-${index}`} className="relative w-24 h-24 group flex-shrink-0">
                             <img
-                                src={URL.createObjectURL(image.file)}
+                                src={url}
                                 alt={`character preview ${index + 1}`}
                                 className="w-full h-full object-cover rounded-lg"
                             />
@@ -420,6 +450,7 @@ const ProjectSetup: React.FC<ProjectSetupProps> = ({
               label="Referência de Estilo"
               description="Envie uma imagem ou um vídeo curto para influenciar o estilo artístico, as cores e a iluminação do vídeo."
               styleSourceFile={styleSourceFile}
+              styleSourceUrl={styleSourceUrl}
               onSelect={handleStyleSelect}
               onRemove={handleStyleRemove}
             />

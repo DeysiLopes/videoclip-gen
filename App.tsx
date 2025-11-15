@@ -8,6 +8,7 @@ import ApiKeyDialog from './components/ApiKeyDialog';
 import FinalCut from './components/FinalCut';
 import LocalApiKeyDialog from './components/LocalApiKeyDialog';
 import ProjectSetup from './components/ProjectSetup';
+import StorageMonitor from './components/StorageMonitor';
 import Storyboard from './components/Storyboard';
 import {dbService} from './services/dbService';
 import {generateVideo} from './services/geminiService';
@@ -591,6 +592,7 @@ const App: React.FC = () => {
       <main className="w-full max-w-6xl mx-auto flex-grow flex flex-col p-2 sm:p-4 overflow-y-auto">
         {renderContent()}
       </main>
+      <StorageMonitor />
     </div>
   );
 };
