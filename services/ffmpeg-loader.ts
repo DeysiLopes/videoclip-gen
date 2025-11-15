@@ -10,7 +10,7 @@ let ffmpegSingleton: FFmpeg | null = null;
 export async function getFFmpeg() {
   if (ffmpegSingleton?.loaded) return ffmpegSingleton;
 
-  console.log('[FFmpeg Debug] Initializing multi-threaded FFmpeg.');
+  console.log('[FFmpeg Debug] Initializing single-threaded FFmpeg to ensure deployment compatibility.');
 
   const ffmpeg = new FFmpeg();
 
@@ -19,23 +19,22 @@ export async function getFFmpeg() {
   });
 
   try {
-    console.log('[FFmpeg Debug] Loading multi-threaded core from CDN...');
-    // Use the multi-threaded version (@ffmpeg/core-mt) for better performance.
-    // This requires a cross-origin isolated environment, enabled by coi-serviceworker.js.
-    const baseURL = 'https://unpkg.com/@ffmpeg/core-mt@0.12.6/dist/esm';
+    console.log('[FFmpeg Debug] Loading single-threaded core from CDN...');
+    // Use the single-threaded version (@ffmpeg/core) to avoid cross-origin isolation issues.
+    // This is more reliable in deployment environments where server headers cannot be controlled.
+    const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm';
 
     console.log('[FFmpeg Debug] Attempting to load with toBlobURL...');
     try {
       const coreURL = await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript');
       const wasmURL = await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm');
-      const workerURL = await toBlobURL(`${baseURL}/ffmpeg-core.worker.js`, 'text/javascript');
-      
+
       console.log('[FFmpeg Debug] URLs prepared with toBlobURL, initiating load...');
 
+      // The single-threaded version does not use a workerURL.
       await ffmpeg.load({
         coreURL,
         wasmURL,
-        workerURL,
       });
 
       console.log('[FFmpeg Debug] FFmpeg core loaded successfully with toBlobURL.');
@@ -47,7 +46,6 @@ export async function getFFmpeg() {
       await ffmpeg.load({
         coreURL: `${baseURL}/ffmpeg-core.js`,
         wasmURL: `${baseURL}/ffmpeg-core.wasm`,
-        workerURL: `${baseURL}/ffmpeg-core.worker.js`,
       });
 
       console.log('[FFmpeg Debug] FFmpeg core loaded successfully with direct URLs.');

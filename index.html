@@ -33,24 +33,7 @@
 <script src="https://cdn.tailwindcss.com"></script>
 </head>
   <body class="bg-black text-white">
-    <script>
-      // This service worker is required to enable SharedArrayBuffer for the multi-threaded FFmpeg.
-      // It adds the necessary COOP and COEP headers to make the page cross-origin isolated.
-      if (typeof SharedArrayBuffer === 'undefined') {
-        console.log('SharedArrayBuffer not available. Registering COI service worker...');
-        // Fix: Cannot find name 'navigator'.
-        (window.navigator.serviceWorker || { register: () => Promise.resolve() }).register('/coi-serviceworker.js').then(
-          () => {
-            console.log('COI service worker registered. Reloading page to apply headers...');
-            // Fix: Cannot find name 'location'.
-            (window.location || { reload: () => {} }).reload();
-          },
-          (err) => {
-            console.error('COI service worker registration failed:', err);
-          }
-        );
-      }
-    </script>
+    <!-- The service worker script for cross-origin isolation has been removed as it's no longer needed. -->
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
   </body>
