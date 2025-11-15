@@ -70,15 +70,21 @@ const getDB = (): Promise<IDBDatabase> => {
       }
       
       // Migração: mover blobs existentes para nova store
-      if (event.oldVersion < 2 && dbInstance.objectStoreNames.contains(SCENES_STORE)) {
+      if (event.oldVersion < 2 && transaction.objectStoreNames.contains(SCENES_STORE)) {
+        console.log('Migrating database from v1 to v2...');
         const sceneStore = transaction.objectStore(SCENES_STORE);
-        const blobStore = transaction.objectStore(BLOBS_STORE);
+        
+        // This can only be created within the upgrade transaction
+        const blobStore = dbInstance.objectStoreNames.contains(BLOBS_STORE) 
+            ? transaction.objectStore(BLOBS_STORE)
+            : dbInstance.createObjectStore(BLOBS_STORE, { keyPath: 'sceneId' });
         
         sceneStore.openCursor().onsuccess = (cursorEvent) => {
           const cursor = (cursorEvent.target as IDBRequest<IDBCursorWithValue>).result;
           if (cursor) {
             const scene = cursor.value;
-            if (scene.videoBlob) {
+            if (scene.videoBlob && scene.videoBlob instanceof Blob) {
+              console.log(`Migrating blob for scene ${scene.id}`);
               // Salvar blob na store separada
               blobStore.put({ sceneId: scene.id, blob: scene.videoBlob });
               // Remover blob da cena
@@ -102,14 +108,16 @@ const getDB = (): Promise<IDBDatabase> => {
 
 const validateBlob = (blob: Blob): boolean => {
   if (!blob || !(blob instanceof Blob)) {
+    console.warn('Invalid blob provided:', blob);
     return false;
   }
   if (blob.size === 0) {
     console.warn('Blob is empty');
     return false;
   }
-  if (blob.size > 100 * 1024 * 1024) { // 100MB limit
-    console.warn('Blob exceeds 100MB limit:', blob.size);
+  // Increased limit to 200MB to be safe
+  if (blob.size > 200 * 1024 * 1024) { 
+    console.warn('Blob exceeds 200MB limit:', blob.size);
     return false;
   }
   return true;
@@ -119,8 +127,11 @@ const saveScene = async (scene: Scene): Promise<void> => {
   const currentDb = await getDB();
   
   return new Promise((resolve, reject) => {
-    try {
       const transaction = currentDb.transaction([SCENES_STORE, BLOBS_STORE], 'readwrite');
+      
+      transaction.oncomplete = () => {
+        resolve();
+      };
       
       transaction.onerror = () => {
         console.error('Transaction error:', transaction.error);
@@ -135,34 +146,23 @@ const saveScene = async (scene: Scene): Promise<void> => {
       const sceneStore = transaction.objectStore(SCENES_STORE);
       const blobStore = transaction.objectStore(BLOBS_STORE);
       
-      // Separar blob do resto dos dados da cena
       const sceneData = { ...scene };
       const blobToSave = sceneData.videoBlob;
       delete sceneData.videoBlob;
-      delete sceneData.videoUrl; // URLs não devem ser salvos
+      delete sceneData.videoUrl; 
       
-      // Salvar dados da cena (sem blob)
-      const sceneRequest = sceneStore.put(sceneData);
+      sceneStore.put(sceneData);
       
-      sceneRequest.onerror = () => {
-        console.error('Error saving scene data:', sceneRequest.error);
-        reject(sceneRequest.error || new Error('Failed to save scene'));
-      };
-      
-      // Se houver blob, salvar separadamente
       if (blobToSave) {
         if (!validateBlob(blobToSave)) {
-          console.error('Invalid blob for scene:', scene.id);
-          reject(new Error('Invalid video blob'));
+          transaction.abort();
+          reject(new Error('Invalid video blob for scene ' + scene.id));
           return;
         }
         
         const blobRequest = blobStore.put({ sceneId: scene.id, blob: blobToSave });
         
         blobRequest.onerror = () => {
-          console.error('Error saving blob:', blobRequest.error);
-          
-          // Verificar se é erro de quota
           if (blobRequest.error?.name === 'QuotaExceededError') {
             reject(new Error('Storage quota exceeded. Please free up space or delete old scenes.'));
           } else {
@@ -170,15 +170,6 @@ const saveScene = async (scene: Scene): Promise<void> => {
           }
         };
       }
-      
-      transaction.oncomplete = () => {
-        resolve();
-      };
-      
-    } catch (error) {
-      console.error('Error in saveScene:', error);
-      reject(error);
-    }
   });
 };
 
@@ -186,61 +177,39 @@ const getScenes = async (): Promise<Scene[]> => {
   const currentDb = await getDB();
   
   return new Promise((resolve, reject) => {
-    try {
       const transaction = currentDb.transaction([SCENES_STORE, BLOBS_STORE], 'readonly');
-      
-      transaction.onerror = () => {
-        reject(transaction.error || new Error('Transaction failed'));
-      };
-      
       const sceneStore = transaction.objectStore(SCENES_STORE);
       const blobStore = transaction.objectStore(BLOBS_STORE);
       
       const sceneRequest = sceneStore.getAll();
       
+      sceneRequest.onerror = () => reject(sceneRequest.error);
+      
       sceneRequest.onsuccess = () => {
-        const scenes = sceneRequest.result;
-        let processedCount = 0;
-        
+        const scenes: Scene[] = sceneRequest.result;
         if (scenes.length === 0) {
           resolve([]);
           return;
         }
         
-        // Buscar blobs para cada cena
-        scenes.forEach((scene) => {
-          const blobRequest = blobStore.get(scene.id);
-          
-          blobRequest.onsuccess = () => {
-            const blobData = blobRequest.result;
-            if (blobData && blobData.blob) {
-              scene.videoBlob = blobData.blob;
-            }
-            
-            processedCount++;
-            if (processedCount === scenes.length) {
-              resolve(scenes);
-            }
-          };
-          
-          blobRequest.onerror = () => {
-            console.warn('Failed to load blob for scene:', scene.id);
-            processedCount++;
-            if (processedCount === scenes.length) {
-              resolve(scenes);
-            }
-          };
-        });
+        const promises = scenes.map(scene => 
+          new Promise<Scene>((res, rej) => {
+            const blobRequest = blobStore.get(scene.id);
+            blobRequest.onerror = () => {
+              console.warn('Failed to load blob for scene:', scene.id);
+              res(scene); // Resolve scene without blob on error
+            };
+            blobRequest.onsuccess = () => {
+              if (blobRequest.result?.blob) {
+                scene.videoBlob = blobRequest.result.blob;
+              }
+              res(scene);
+            };
+          })
+        );
+        
+        Promise.all(promises).then(resolve).catch(reject);
       };
-      
-      sceneRequest.onerror = () => {
-        reject(sceneRequest.error || new Error('Failed to load scenes'));
-      };
-      
-    } catch (error) {
-      console.error('Error in getScenes:', error);
-      reject(error);
-    }
   });
 };
 
@@ -248,27 +217,12 @@ const deleteScene = async (id: string): Promise<void> => {
   const currentDb = await getDB();
   
   return new Promise((resolve, reject) => {
-    try {
-      const transaction = currentDb.transaction([SCENES_STORE, BLOBS_STORE], 'readwrite');
-      
-      transaction.onerror = () => {
-        reject(transaction.error || new Error('Transaction failed'));
-      };
-      
-      const sceneStore = transaction.objectStore(SCENES_STORE);
-      const blobStore = transaction.objectStore(BLOBS_STORE);
-      
-      sceneStore.delete(id);
-      blobStore.delete(id);
-      
-      transaction.oncomplete = () => {
-        resolve();
-      };
-      
-    } catch (error) {
-      console.error('Error in deleteScene:', error);
-      reject(error);
-    }
+    const transaction = currentDb.transaction([SCENES_STORE, BLOBS_STORE], 'readwrite');
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => reject(transaction.error);
+    
+    transaction.objectStore(SCENES_STORE).delete(id);
+    transaction.objectStore(BLOBS_STORE).delete(id);
   });
 };
 
@@ -276,24 +230,12 @@ const clearScenes = async (): Promise<void> => {
   const currentDb = await getDB();
   
   return new Promise((resolve, reject) => {
-    try {
-      const transaction = currentDb.transaction([SCENES_STORE, BLOBS_STORE], 'readwrite');
+    const transaction = currentDb.transaction([SCENES_STORE, BLOBS_STORE], 'readwrite');
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => reject(transaction.error);
       
-      transaction.onerror = () => {
-        reject(transaction.error || new Error('Transaction failed'));
-      };
-      
-      transaction.objectStore(SCENES_STORE).clear();
-      transaction.objectStore(BLOBS_STORE).clear();
-      
-      transaction.oncomplete = () => {
-        resolve();
-      };
-      
-    } catch (error) {
-      console.error('Error in clearScenes:', error);
-      reject(error);
-    }
+    transaction.objectStore(SCENES_STORE).clear();
+    transaction.objectStore(BLOBS_STORE).clear();
   });
 };
 
@@ -301,34 +243,22 @@ const saveProjectConfig = async (config: ProjectConfig): Promise<void> => {
   const currentDb = await getDB();
   
   return new Promise((resolve, reject) => {
-    try {
-      const transaction = currentDb.transaction([CONFIG_STORE], 'readwrite');
-      
-      transaction.onerror = () => {
-        reject(transaction.error || new Error('Transaction failed'));
-      };
-      
-      const store = transaction.objectStore(CONFIG_STORE);
-      const configToStore = { ...config, audioUrl: null };
-      
-      const request = store.put(configToStore, CONFIG_KEY);
-      
-      request.onerror = () => {
-        if (request.error?.name === 'QuotaExceededError') {
-          reject(new Error('Storage quota exceeded. Please free up space.'));
-        } else {
-          reject(request.error || new Error('Failed to save config'));
-        }
-      };
-      
-      transaction.oncomplete = () => {
-        resolve();
-      };
-      
-    } catch (error) {
-      console.error('Error in saveProjectConfig:', error);
-      reject(error);
-    }
+    const transaction = currentDb.transaction([CONFIG_STORE], 'readwrite');
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => reject(transaction.error);
+
+    const store = transaction.objectStore(CONFIG_STORE);
+    // Never store blob URLs in the database.
+    const configToStore = { ...config, audioUrl: null };
+    
+    const request = store.put(configToStore, CONFIG_KEY);
+    request.onerror = () => {
+      if (request.error?.name === 'QuotaExceededError') {
+        reject(new Error('Storage quota exceeded. Please free up space.'));
+      } else {
+        reject(request.error || new Error('Failed to save config'));
+      }
+    };
   });
 };
 
@@ -336,40 +266,22 @@ const getProjectConfig = async (): Promise<ProjectConfig | null> => {
   const currentDb = await getDB();
   
   return new Promise((resolve, reject) => {
-    try {
-      const transaction = currentDb.transaction([CONFIG_STORE], 'readonly');
-      
-      transaction.onerror = () => {
-        reject(transaction.error || new Error('Transaction failed'));
-      };
-      
-      const store = transaction.objectStore(CONFIG_STORE);
-      const request = store.get(CONFIG_KEY);
-      
-      request.onsuccess = () => {
-        resolve(request.result || null);
-      };
-      
-      request.onerror = () => {
-        reject(request.error || new Error('Failed to load config'));
-      };
-      
-    } catch (error) {
-      console.error('Error in getProjectConfig:', error);
-      reject(error);
-    }
+    const transaction = currentDb.transaction([CONFIG_STORE], 'readonly');
+    const store = transaction.objectStore(CONFIG_STORE);
+    const request = store.get(CONFIG_KEY);
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => resolve(request.result || null);
   });
 };
 
-// Verificar quota de armazenamento disponível
 const checkStorageQuota = async (): Promise<{ usage: number; quota: number; available: number }> => {
-  if ('storage' in navigator && 'estimate' in navigator.storage) {
+  if (navigator.storage && navigator.storage.estimate) {
     try {
         const estimate = await navigator.storage.estimate();
         return {
-          usage: estimate.usage || 0,
-          quota: estimate.quota || 0,
-          available: (estimate.quota || 0) - (estimate.usage || 0)
+          usage: estimate.usage ?? 0,
+          quota: estimate.quota ?? 0,
+          available: (estimate.quota ?? 0) - (estimate.usage ?? 0)
         };
     } catch (error) {
         console.warn("Could not estimate storage quota:", error);
@@ -388,4 +300,5 @@ export const dbService = {
   saveProjectConfig,
   getProjectConfig,
   checkStorageQuota,
+  validateBlob,
 };

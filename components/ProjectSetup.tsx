@@ -34,7 +34,6 @@ const fileToImageFile = (file: File): Promise<ImageFile> => {
 
 const extractVideoFrame = (videoFile: File): Promise<ImageFile> => {
   return new Promise((resolve, reject) => {
-    // Fix: Cannot find name 'document'.
     const video = (window as any).document.createElement('video');
     video.preload = 'metadata';
     video.src = URL.createObjectURL(videoFile);
@@ -50,7 +49,6 @@ const extractVideoFrame = (videoFile: File): Promise<ImageFile> => {
 
     video.onseeked = () => {
       setTimeout(() => {
-        // Fix: Cannot find name 'document'.
         const canvas = (window as any).document.createElement('canvas');
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
@@ -109,13 +107,22 @@ const StyleUploader: React.FC<{
   onSelect: (frame: ImageFile, sourceFile: File) => void;
   onRemove: () => void;
   styleSourceFile: File | null;
-  styleSourceUrl: string | null;
   label: string;
   description: string;
-}> = ({onSelect, onRemove, styleSourceFile, styleSourceUrl, label, description}) => {
+}> = ({onSelect, onRemove, styleSourceFile, label, description}) => {
   const inputRef = useRef<HTMLInputElement>(null);
+  const [styleSourceUrl, setStyleSourceUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (styleSourceFile) {
+      const url = URL.createObjectURL(styleSourceFile);
+      setStyleSourceUrl(url);
+      return () => URL.revokeObjectURL(url);
+    }
+    setStyleSourceUrl(null);
+  }, [styleSourceFile]);
+
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    // Fix: Cast to any to access files property, due to a potential TS configuration issue.
     const file = (e.target as any).files?.[0];
     if (file) {
       try {
@@ -125,14 +132,12 @@ const StyleUploader: React.FC<{
         } else if (file.type.startsWith('image/')) {
           frame = await fileToImageFile(file);
         } else {
-          // Fix: Cannot find name 'alert'.
           (window as any).alert('Tipo de arquivo não suportado. Por favor, envie uma imagem ou vídeo.');
           return;
         }
         onSelect(frame, file);
       } catch (error) {
         console.error('Error processing file:', error);
-        // Fix: Cannot find name 'alert'.
         (window as any).alert(
           `Erro ao processar o arquivo: ${error instanceof Error ? error.message : 'Erro desconhecido'}`,
         );
@@ -228,76 +233,44 @@ const ProjectSetup: React.FC<ProjectSetupProps> = ({
   onComplete,
   initialConfig,
 }) => {
-  const [technicalSheet, setTechnicalSheet] = useState(defaultTechnicalSheet);
+  const [technicalSheet, setTechnicalSheet] = useState(initialConfig?.technicalSheet || defaultTechnicalSheet);
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>(
-    () => parseConfigFromSheet(defaultTechnicalSheet).aspectRatio,
+    () => parseConfigFromSheet(initialConfig?.technicalSheet || defaultTechnicalSheet).aspectRatio,
   );
   const [resolution, setResolution] = useState<Resolution>(
-    () => parseConfigFromSheet(defaultTechnicalSheet).resolution,
+    () => parseConfigFromSheet(initialConfig?.technicalSheet || defaultTechnicalSheet).resolution,
   );
 
-  const [characterImages, setCharacterImages] = useState<ImageFile[]>([]);
-  const [characterImageUrls, setCharacterImageUrls] = useState<string[]>([]);
-  const [styleImage, setStyleImage] = useState<ImageFile | null>(null);
-  const [styleSourceFile, setStyleSourceFile] = useState<File | null>(null);
-  const [styleSourceUrl, setStyleSourceUrl] = useState<string | null>(null);
-  const [audioFile, setAudioFile] = useState<File | null>(null);
+  const [characterImages, setCharacterImages] = useState<ImageFile[]>(initialConfig?.characterImages || []);
+  const [styleImage, setStyleImage] = useState<ImageFile | null>(initialConfig?.styleImages?.[0] || null);
+  const [styleSourceFile, setStyleSourceFile] = useState<File | null>(initialConfig?.styleImages?.[0]?.file || null);
+  const [audioFile, setAudioFile] = useState<File | null>(initialConfig?.audioFile || null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  
   const characterImageInputRef = useRef<HTMLInputElement>(null);
-
+  
+  // Effect to sync with prop, runs only when the component mounts or config prop identity changes.
   useEffect(() => {
     if (initialConfig) {
       setTechnicalSheet(initialConfig.technicalSheet);
-      const {aspectRatio, resolution} = parseConfigFromSheet(
-        initialConfig.technicalSheet,
-      );
+      const {aspectRatio, resolution} = parseConfigFromSheet(initialConfig.technicalSheet);
       setAspectRatio(aspectRatio);
       setResolution(resolution);
       setCharacterImages(initialConfig.characterImages);
       const firstStyleImage = initialConfig.styleImages?.[0];
-      if (firstStyleImage) {
-        setStyleImage(firstStyleImage);
-        setStyleSourceFile(firstStyleImage.file);
-      } else {
-        setStyleImage(null);
-        setStyleSourceFile(null);
-      }
+      setStyleImage(firstStyleImage || null);
+      setStyleSourceFile(firstStyleImage?.file || null);
       setAudioFile(initialConfig.audioFile);
     }
   }, [initialConfig]);
   
-  // Create and revoke object URLs for character image previews to prevent memory leaks
-  useEffect(() => {
-    const urls = characterImages.map(img => URL.createObjectURL(img.file));
-    setCharacterImageUrls(urls);
-    return () => {
-      urls.forEach(url => URL.revokeObjectURL(url));
-    };
-  }, [characterImages]);
-
-  // Create and revoke object URLs for style image/video previews to prevent memory leaks
-  useEffect(() => {
-    if (styleSourceFile) {
-      const url = URL.createObjectURL(styleSourceFile);
-      setStyleSourceUrl(url);
-      return () => {
-        URL.revokeObjectURL(url);
-      };
-    }
-    setStyleSourceUrl(null); // Clear URL if file is removed
-  }, [styleSourceFile]);
-  
-  // Centralized effect for audio URL management to prevent memory leaks
+  // Manage audio URL lifecycle
   useEffect(() => {
     if (audioFile) {
-        const url = URL.createObjectURL(audioFile);
-        setAudioUrl(url);
-        return () => {
-            URL.revokeObjectURL(url);
-        };
+      const url = URL.createObjectURL(audioFile);
+      setAudioUrl(url);
+      return () => URL.revokeObjectURL(url);
     }
-    // If audioFile is null, url will be revoked by previous effect cleanup,
-    // so just clear the state.
     setAudioUrl(null);
   }, [audioFile]);
 
@@ -322,7 +295,6 @@ const ProjectSetup: React.FC<ProjectSetupProps> = ({
   const handleTechnicalSheetChange = (
     e: React.ChangeEvent<HTMLTextAreaElement>,
   ) => {
-    // Fix: Cast to any to access value property, due to a potential TS configuration issue.
     const newText = (e.target as any).value;
     setTechnicalSheet(newText);
     const {aspectRatio, resolution} = parseConfigFromSheet(newText);
@@ -331,7 +303,6 @@ const ProjectSetup: React.FC<ProjectSetupProps> = ({
   };
 
   const handleCharacterImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    // Fix: Cast to any to access files property, due to a potential TS configuration issue.
     const file = (e.target as any).files?.[0];
     if (file && characterImages.length < 5) {
         try {
@@ -360,9 +331,39 @@ const ProjectSetup: React.FC<ProjectSetupProps> = ({
       characterImages,
       styleImages: styleImage ? [styleImage] : [],
       audioFile,
-      audioUrl,
+      audioUrl: null, // Pass null, App component will manage its own URL lifecycle
     });
   };
+
+  const CharacterImagePreview: React.FC<{image: ImageFile, onRemove: () => void}> = ({ image, onRemove }) => {
+    const [url, setUrl] = useState<string | null>(null);
+
+    useEffect(() => {
+        const newUrl = URL.createObjectURL(image.file);
+        setUrl(newUrl);
+        return () => URL.revokeObjectURL(newUrl);
+    }, [image]);
+
+    if (!url) return null;
+
+    return (
+        <div className="relative w-24 h-24 group flex-shrink-0">
+            <img
+                src={url}
+                alt={`character preview`}
+                className="w-full h-full object-cover rounded-lg"
+            />
+            <button
+                type="button"
+                onClick={onRemove}
+                className="absolute top-1 right-1 w-6 h-6 bg-black/60 hover:bg-black/80 rounded-full flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                aria-label="Remove image">
+                <XMarkIcon className="w-4 h-4" />
+            </button>
+        </div>
+    );
+  };
+
 
   return (
     <div className="flex-grow flex items-start justify-center pt-8">
@@ -412,21 +413,12 @@ const ProjectSetup: React.FC<ProjectSetupProps> = ({
                 <h3 className="text-lg font-semibold text-white">Personagem Principal</h3>
                 <p className="text-gray-400 text-sm mt-1">Envie até 5 imagens do personagem principal para melhor semelhança.</p>
                 <div className="mt-4 flex flex-wrap items-center gap-4">
-                    {characterImageUrls.map((url, index) => (
-                        <div key={`${characterImages[index].file.name}-${index}`} className="relative w-24 h-24 group flex-shrink-0">
-                            <img
-                                src={url}
-                                alt={`character preview ${index + 1}`}
-                                className="w-full h-full object-cover rounded-lg"
-                            />
-                            <button
-                                type="button"
-                                onClick={() => handleRemoveCharacterImage(index)}
-                                className="absolute top-1 right-1 w-6 h-6 bg-black/60 hover:bg-black/80 rounded-full flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity"
-                                aria-label="Remove image">
-                                <XMarkIcon className="w-4 h-4" />
-                            </button>
-                        </div>
+                    {characterImages.map((image, index) => (
+                        <CharacterImagePreview 
+                          key={`${image.file.name}-${index}`} 
+                          image={image} 
+                          onRemove={() => handleRemoveCharacterImage(index)} 
+                        />
                     ))}
                     {characterImages.length < 5 && (
                         <button
@@ -450,7 +442,6 @@ const ProjectSetup: React.FC<ProjectSetupProps> = ({
               label="Referência de Estilo"
               description="Envie uma imagem ou um vídeo curto para influenciar o estilo artístico, as cores e a iluminação do vídeo."
               styleSourceFile={styleSourceFile}
-              styleSourceUrl={styleSourceUrl}
               onSelect={handleStyleSelect}
               onRemove={handleStyleRemove}
             />
