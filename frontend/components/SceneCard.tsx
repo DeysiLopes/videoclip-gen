@@ -33,6 +33,7 @@ interface SceneCardProps {
   onUpdate: (id: string, updates: Partial<Scene>) => void;
   onDelete: (id: string) => void;
   onGenerate: (id: string) => void;
+  onSeekToScene?: (sceneId: string) => void;
   isActive: boolean;
   isPlaying: boolean;
   masterCurrentTime: number;
@@ -44,6 +45,7 @@ const SceneCard: React.FC<SceneCardProps> = ({
   onUpdate,
   onDelete,
   onGenerate,
+  onSeekToScene,
   isActive,
   isPlaying,
   masterCurrentTime,
@@ -204,7 +206,9 @@ const SceneCard: React.FC<SceneCardProps> = ({
                 muted 
                 loop 
                 playsInline 
-                className="w-full h-full object-cover" 
+                className="w-full h-full object-cover cursor-pointer"
+                onClick={() => onSeekToScene?.(scene.id)}
+                title="Clique para reproduzir esta cena"
               />
               <div className="absolute bottom-2 left-2 bg-black/60 text-white text-xs px-2 py-0.5 rounded font-mono flex items-center gap-1.5">
                 {formatSeconds(scene.duration ?? 0)}{durationLabel}

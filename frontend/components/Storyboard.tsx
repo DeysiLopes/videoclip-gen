@@ -79,8 +79,30 @@ const Storyboard: React.FC<StoryboardProps> = ({
       // Fix: Property 'currentTime' does not exist on type 'HTMLAudioElement'.
       (audioRef.current as any).currentTime = time;
       setCurrentTime(time);
+
+      // Dar play automaticamente quando o usuário clica na timeline
+      if ((audioRef.current as any).paused) {
+        (audioRef.current as any).play().catch((e: Error) => {
+          console.warn('Não foi possível dar play automaticamente:', e);
+        });
+      }
     }
   }
+
+  const handleSeekToScene = useCallback((sceneId: string) => {
+    const scene = scenes.find(s => s.id === sceneId);
+    if (scene && audioRef.current) {
+      (audioRef.current as any).currentTime = scene.timestamp;
+      setCurrentTime(scene.timestamp);
+
+      // Dar play automaticamente
+      if ((audioRef.current as any).paused) {
+        (audioRef.current as any).play().catch((e: Error) => {
+          console.warn('Não foi possível dar play automaticamente:', e);
+        });
+      }
+    }
+  }, [scenes]);
 
   const generatedOrApprovedScenes = scenes.filter(s => s.status === SceneStatus.GENERATED || s.status === SceneStatus.APPROVED).length;
   const canProceed = scenes.length > 0;
@@ -127,6 +149,7 @@ const Storyboard: React.FC<StoryboardProps> = ({
                 onUpdate={onUpdateScene}
                 onDelete={onDeleteScene}
                 onGenerate={onGenerateScene}
+                onSeekToScene={handleSeekToScene}
                 isActive={scene.id === activeScene?.id}
                 isPlaying={isPlaying}
                 masterCurrentTime={currentTime}

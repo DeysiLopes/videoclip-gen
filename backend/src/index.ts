@@ -106,6 +106,15 @@ app.post('/api/render', upload.any(), async (req: Request, res: Response) => {
   try {
     const jobId = uuidv4();
     const projectId = req.body.projectId || 'unknown';
+    const sceneDurationsStr = req.body.sceneDurations || '[]';
+    let sceneDurations: number[] = [];
+
+    try {
+      sceneDurations = JSON.parse(sceneDurationsStr);
+      console.log(`[API] Scene durations: ${sceneDurations.join(', ')}`);
+    } catch (e) {
+      console.warn('[API] Failed to parse sceneDurations:', e);
+    }
 
     console.log(`[API] Render request received: ${jobId}`);
     console.log(`[API] Files received: ${(req.files as any)?.length || 0}`);
@@ -142,7 +151,7 @@ app.post('/api/render', upload.any(), async (req: Request, res: Response) => {
     console.log(`[API] Starting render with ${videoFiles.length} videos and ${audioFile ? 'audio' : 'no audio'}`);
 
     // Iniciar renderização em background (fire and forget)
-    renderVideo(jobId, videoFiles, audioFile).catch((err) => {
+    renderVideo(jobId, videoFiles, audioFile, sceneDurations).catch((err) => {
       console.error(`[Worker] Error processing job ${jobId}:`, err);
     });
 

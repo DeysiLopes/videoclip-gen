@@ -22,10 +22,39 @@ const OUTPUT_DIR = path.join(__dirname, '..', 'renders');
 await fs.mkdir(TMP_DIR, { recursive: true });
 await fs.mkdir(OUTPUT_DIR, { recursive: true });
 
+/**
+ * Obter duração de um vídeo usando FFmpeg (dinamicamente)
+ * Não hardcoda valores!
+ */
+async function getVideoDuration(videoPath: string): Promise<number> {
+  try {
+    const { stdout } = await execa('ffprobe', [
+      '-v', 'error',
+      '-show_entries', 'format=duration',
+      '-of', 'default=noprint_wrappers=1:nokey=1:nokey=1',
+      videoPath
+    ]);
+
+    const duration = parseFloat(stdout.toString().trim());
+    if (isNaN(duration)) {
+      console.warn(`[Worker] Failed to parse duration for ${videoPath}, using 8s as fallback`);
+      return 8;
+    }
+
+    console.log(`[Worker] ✓ Detected video duration: ${videoPath} = ${duration.toFixed(2)}s`);
+    return duration;
+  } catch (error) {
+    console.warn(`[Worker] Failed to get duration for ${videoPath}:`, error);
+    console.warn(`[Worker] Using 8s as fallback (Gemini default)`);
+    return 8; // Fallback para Gemini default
+  }
+}
+
 export async function renderVideo(
   jobId: string,
   videoFiles: string[],
-  audioFile?: string
+  audioFile?: string,
+  sceneDurations?: number[]
 ): Promise<void> {
   try {
     updateJobStatus(jobId, 'processing', 0);
@@ -36,6 +65,7 @@ export async function renderVideo(
     console.log(`[Worker] Starting render for job ${jobId}`);
     console.log(`[Worker] Video files: ${videoFiles.length}`);
     console.log(`[Worker] Audio: ${audioFile ? 'Yes' : 'No'}`);
+    console.log(`[Worker] Scene durations: ${sceneDurations?.join(', ') || 'None'}`);
 
     // Construir comando FFmpeg
     const args: string[] = [];
@@ -50,24 +80,61 @@ export async function renderVideo(
       args.push('-i', audioFile);
     }
 
-    // Filter complex: concatenar vídeos E sincronizar com áudio
+    // Filter complex: concatenar vídeos com loop para preencher duração
     let filterComplex = '';
+    let numInputs = numScenes;
 
-    // Escalar cada vídeo para a duração desejada (se houver áudio)
-    if (audioFile) {
+    // Se temos durações planejadas, repetir vídeos para atingir duração
+    if (sceneDurations && sceneDurations.length === numScenes) {
+      console.log(`[Worker] Creating loop filter to match scene durations`);
+      console.log(`[Worker] 🔍 Detecting actual video durations...`);
+
+      // DINÂMICO: Obter duração real de cada vídeo
+      const videoDurations: number[] = [];
+      for (let i = 0; i < videoFiles.length; i++) {
+        const duration = await getVideoDuration(videoFiles[i]);
+        videoDurations.push(duration);
+      }
+      console.log(`[Worker] 📊 Video durations: ${videoDurations.map(d => d.toFixed(2)).join('s, ')}s`);
+
+      for (let i = 0; i < numScenes; i++) {
+        const targetDuration = sceneDurations[i];
+        const actualVideoDuration = videoDurations[i]; // ✅ DINÂMICO!
+        const repetitions = Math.ceil(targetDuration / actualVideoDuration); // ✅ USA DURAÇÃO REAL!
+
+        console.log(`[Worker] Scene ${i + 1}: actual ${actualVideoDuration.toFixed(2)}s, target ${targetDuration}s, repetitions: ${repetitions}`);
+
+        // Criar filtro para repetir e trimpar
+        if (repetitions === 1) {
+          // Apenas um segmento - use como está
+          filterComplex += `[${i}:v]trim=end=${targetDuration},setpts=PTS-STARTPTS[v${i}];`;
+        } else {
+          // Múltiplos segmentos - concatenar e trimpar
+          let repeatPart = '';
+          for (let r = 0; r < repetitions; r++) {
+            repeatPart += `[${i}:v]`;
+          }
+          filterComplex += `${repeatPart}concat=n=${repetitions}:v=1:a=0[v${i}_repeat];[v${i}_repeat]trim=end=${targetDuration},setpts=PTS-STARTPTS[v${i}];`;
+        }
+      }
+
+      // Concatenar todos os vídeos processados
+      for (let i = 0; i < numScenes; i++) {
+        filterComplex += `[v${i}]`;
+      }
+      filterComplex += `concat=n=${numScenes}:v=1:a=0[outv]`;
+    } else {
+      // Fallback: apenas concatenar sem loop
+      console.log(`[Worker] Using simple concatenation (no durations provided)`);
+
       for (let i = 0; i < numScenes; i++) {
         filterComplex += `[${i}:v]setpts=PTS-STARTPTS[v${i}];`;
       }
       for (let i = 0; i < numScenes; i++) {
         filterComplex += `[v${i}]`;
       }
-    } else {
-      for (let i = 0; i < numScenes; i++) {
-        filterComplex += `[${i}:v]`;
-      }
+      filterComplex += `concat=n=${numScenes}:v=1:a=0[outv]`;
     }
-
-    filterComplex += `concat=n=${numScenes}:v=1:a=0[outv]`;
 
     args.push('-filter_complex', filterComplex);
     args.push('-map', '[outv]');
