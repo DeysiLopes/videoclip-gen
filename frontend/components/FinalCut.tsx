@@ -3,8 +3,9 @@
  * SPDX-License-Identifier: Apache-2.0
 */
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
-import {getFFmpeg} from '../services/ffmpeg-loader';
-import {ProjectConfig, Scene, SceneStatus} from '../types';
+import {getFFmpeg} from '../src/services/ffmpeg-loader';
+import {startRender, pollJobStatus, downloadRender, JobStatus} from '../src/services/renderService';
+import {ProjectConfig, Scene, SceneStatus} from '../src/types';
 import RenderProgressDialog from './RenderProgressDialog';
 import VisualTimeline from './VisualTimeline';
 
@@ -123,123 +124,81 @@ const FinalCut: React.FC<FinalCutProps> = ({
     setRenderProgress(0);
 
     try {
-      const ffmpeg = await getFFmpeg();
+      // Preparar arquivos para enviar
+      const videoFiles: File[] = [];
+      for (const scene of sortedScenes) {
+        if (scene.videoBlob) {
+          const file = new File([scene.videoBlob], `scene-${scene.id}.mp4`, {
+            type: 'video/mp4',
+          });
+          videoFiles.push(file);
+        }
+      }
+
+      // Áudio (se existir)
+      let audioFile: File | undefined;
+      if (projectConfig.audioFile) {
+        audioFile = new File([projectConfig.audioFile], 'audio.mp3', {
+          type: 'audio/mpeg',
+        });
+      }
+
+      // Durações das cenas
+      const sceneDurations = sortedScenes.map((s) => s.intendedDuration ?? s.duration ?? 3);
+
+      console.log('[Backend] Iniciando renderização no backend...');
+      console.log('[Backend] Vídeos:', videoFiles.length);
+      console.log('[Backend] Áudio:', audioFile ? 'Sim' : 'Não');
 
       setPhase('rendering');
       setCurrentPhase('encoding');
-      setRenderProgress(0);
 
-      ffmpeg.on('log', ({message}) => console.log('[FFmpeg Render Log]:', message));
+      // 1. Iniciar job no backend
+      const renderResponse = await startRender(
+        projectConfig.id || 'default-project',
+        videoFiles,
+        audioFile,
+        sceneDurations
+      );
 
-      let lastProgressTime = Date.now();
-      ffmpeg.on('progress', ({progress, time}) => {
-        lastProgressTime = Date.now();
-        if (progress >= 0 && progress <= 1) {
-          const percentage = Math.round(progress * 100);
-          setRenderProgress(percentage);
-          console.log(`[FFmpeg Progress] ${percentage}% - ${time}s`);
-        }
-      });
+      const jobId = renderResponse.jobId;
+      console.log('[Backend] Job iniciado:', jobId);
+      console.log('[Backend] Status inicial:', renderResponse.status);
 
-      // 1. Write original video files
-      console.log('[FFmpeg] Escrevendo vídeos...');
-      for (let i = 0; i < sortedScenes.length; i++) {
-        const scene = sortedScenes[i];
-        if (scene.videoBlob) {
-          const fileName = `in${i}.mp4`;
-          const buf = new Uint8Array(await scene.videoBlob.arrayBuffer());
-          await ffmpeg.writeFile(fileName, buf);
-          console.log(`[FFmpeg] ✓ ${fileName} (${(scene.videoBlob.size / 1024 / 1024).toFixed(2)} MB)`);
-        } else {
-          const originalSceneIndex = scenes.findIndex(s => s.id === scene.id);
-          throw new Error(`Cena ${originalSceneIndex + 1} sem vídeo`);
-        }
-      }
+      setRenderProgress(5);
 
-      // 2. Write audio
-      const hasAudio = !!projectConfig.audioFile;
-      if (hasAudio) {
-        console.log('[FFmpeg] Escrevendo áudio...');
-        const mbuf = new Uint8Array(await projectConfig.audioFile.arrayBuffer());
-        await ffmpeg.writeFile('music.mp3', mbuf);
-        console.log('[FFmpeg] ✓ Áudio escrito');
-      }
+      // 2. Poll do status até completar
+      await pollJobStatus(
+        jobId,
+        (status: JobStatus) => {
+          console.log(`[Backend] Status: ${status.status}, Progresso: ${status.progress}%`);
 
-      setCurrentPhase('concatenating');
+          // Atualizar progress
+          if (status.status === 'processing') {
+            setCurrentPhase('encoding');
+            setRenderProgress(Math.min(90, 10 + status.progress));
+          } else if (status.status === 'completed') {
+            setRenderProgress(95);
+            setCurrentPhase('finalizing');
+          } else if (status.status === 'failed') {
+            throw new Error(status.error || 'Render job failed');
+          }
+        },
+        2000 // Poll a cada 2 segundos
+      );
 
-      // 3. Build FFmpeg command with concat filter
-      const args: string[] = [];
+      console.log('[Backend] ✅ Job completado! Download iniciando...');
 
-      // Add all video inputs
-      for (let i = 0; i < sortedScenes.length; i++) {
-        args.push('-i', `in${i}.mp4`);
-      }
+      // 3. Download do resultado
+      setRenderProgress(98);
+      await downloadRender(jobId, `DreamDirector_FinalCut_${new Date().getTime()}.mp4`);
 
-      // Add audio input
-      if (hasAudio) {
-        args.push('-i', 'music.mp3');
-      }
-
-      // Build filter complex: concat all videos
-      let filterComplex = '';
-      for (let i = 0; i < sortedScenes.length; i++) {
-        filterComplex += `[${i}:v]`;
-      }
-      filterComplex += `concat=n=${sortedScenes.length}:v=1:a=0[outv]`;
-
-      args.push('-filter_complex', filterComplex);
-      args.push('-map', '[outv]');
-
-      // Map audio
-      if (hasAudio) {
-        args.push('-map', `${sortedScenes.length}:a:0`);
-      }
-
-      // Encoding settings: VP9 PESADO (qualidade máxima)
-      args.push('-c:v', 'libvpx-vp9');
-      args.push('-deadline', 'good');          // Qualidade melhor (não realtime)
-      args.push('-cpu-used', '0');             // Qualidade máxima (muito lento, mas melhor)
-      args.push('-b:v', '3000k');              // Bitrate alto (3Mbps)
-      args.push('-maxrate', '4000k');          // Taxa máxima
-      args.push('-bufsize', '8000k');          // Buffer maior
-      args.push('-pix_fmt', 'yuv420p');
-      args.push('-tile-columns', '2');         // Melhor compressão
-      args.push('-tile-rows', '2');            // Melhor compressão
-
-      if (hasAudio) {
-        args.push('-c:a', 'aac');
-        args.push('-b:a', '128k');
-        args.push('-shortest');
-      }
-
-      args.push('-movflags', '+faststart');
-      args.push('-y', 'out.mp4');
-
-      console.log('[FFmpeg] Iniciando renderização...');
-      console.log('[FFmpeg] Comando:', args.join(' '));
-
-      setCurrentPhase('finalizing');
-      const startTime = Date.now();
-      await ffmpeg.exec(args);
-      const elapsedTime = Date.now() - startTime;
-
-      console.log(`[FFmpeg] ✅ Renderização completa em ${(elapsedTime / 1000).toFixed(1)}s`);
-
-      // 4. Read and save output
-      console.log('[FFmpeg] Lendo arquivo de saída...');
-      const data = await ffmpeg.readFile('out.mp4');
-      const sizeInMB = (data.length / 1024 / 1024).toFixed(2);
-      console.log(`[FFmpeg] ✅ Arquivo lido: ${sizeInMB} MB`);
-
-      const blob = new Blob([data], { type: 'video/mp4' });
-      const href = URL.createObjectURL(blob);
-      setUrl(href);
-      setPhase('done');
       setRenderProgress(100);
-      console.log('[FFmpeg] ========== RENDERIZAÇÃO SUCESSO ==========');
+      setPhase('done');
+      console.log('[Backend] ========== RENDERIZAÇÃO SUCESSO ==========');
 
     } catch (e: any) {
-      console.error('[FFmpeg Error]', e);
+      console.error('[Backend Error]', e);
       setErr(`Falha na renderização: ${e?.message ?? String(e)}`);
       setPhase('error');
     }
@@ -501,30 +460,24 @@ const FinalCut: React.FC<FinalCutProps> = ({
       <div className="flex flex-col items-center gap-6 mt-4 p-6 bg-gray-800/50 rounded-xl border border-gray-700 w-full max-w-3xl">
         <h3 className="text-2xl font-bold text-white">Exporte Sua Obra-Prima</h3>
         <p className="text-gray-400 text-center max-w-lg">
-          Combine todas as suas cenas aprovadas e a faixa de áudio principal em um
-          único arquivo de vídeo. Este processo acontece inteiramente no seu navegador.
+          Envie suas cenas aprovadas e faixa de áudio para renderização no backend.
+          O vídeo será processado com FFmpeg nativo para máxima qualidade e será baixado automaticamente quando pronto.
         </p>
         <div className="flex flex-col items-center gap-4 w-full">
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-4 w-full">
                 <button
                 onClick={handleRender}
                 disabled={isRendering || !canRender}
-                className="px-8 py-4 bg-indigo-600 text-lg rounded-lg font-bold hover:bg-indigo-700 transition-colors disabled:bg-gray-600 disabled:cursor-not-allowed">
+                className="flex-1 px-8 py-4 bg-indigo-600 text-lg rounded-lg font-bold hover:bg-indigo-700 transition-colors disabled:bg-gray-600 disabled:cursor-not-allowed">
                 {renderButtonText}
-                </button>
-                <button
-                onClick={handleDownload}
-                disabled={!canDownload}
-                className="px-8 py-4 bg-green-600 text-lg rounded-lg font-bold hover:bg-green-700 transition-colors disabled:bg-gray-600 disabled:cursor-not-allowed">
-                    Baixar
                 </button>
             </div>
             <button
               onClick={handleRenderPreview}
               disabled={isRendering || !canRender}
-              className="mt-2 px-6 py-3 bg-cyan-600 text-base rounded-lg font-semibold hover:bg-cyan-700 transition-colors disabled:bg-gray-600 disabled:cursor-not-allowed"
+              className="px-6 py-3 bg-cyan-600 text-base rounded-lg font-semibold hover:bg-cyan-700 transition-colors disabled:bg-gray-600 disabled:cursor-not-allowed w-full"
             >
-                📹 Ver Amostra (5 seg cada cena)
+                📹 Ver Amostra (5 seg cada cena - LOCAL)
             </button>
         </div>
         {!canRender ? (
@@ -541,8 +494,8 @@ const FinalCut: React.FC<FinalCutProps> = ({
             <p className="text-sm text-red-400 mt-2 text-center max-w-md">{err}</p>
         )}
         <p className="text-xs text-gray-500 text-center mt-2">
-          A renderização pode levar vários minutos, dependendo da duração do vídeo e
-          do desempenho do seu computador.
+          💡 Renderização agora é no backend com FFmpeg nativo (5-10min) ao invés de no navegador (30min+).
+          O arquivo será baixado automaticamente quando pronto.
         </p>
         <div className="mt-4">
           <button

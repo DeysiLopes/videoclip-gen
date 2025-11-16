@@ -8,7 +8,7 @@ import {
   VideoGenerationReferenceImage,
   VideoGenerationReferenceType,
 } from '@google/genai';
-import {VeoApiParams} from '../types';
+import {VeoApiParams} from '../src/types';
 
 export const generateVideo = async (
   params: VeoApiParams,

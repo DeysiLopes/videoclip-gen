@@ -12,7 +12,7 @@ import {
   Resolution,
   VeoModel,
   VideoFile,
-} from '../types';
+} from '../src/types';
 import {
   ArrowRightIcon,
   ChevronDownIcon,

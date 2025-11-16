@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
 */
 import React, { useEffect, useState } from 'react';
-import { dbService } from '../services/dbService';
+import { dbService } from '../src/services/dbService';
 
 const StorageMonitor: React.FC = () => {
   const [storageInfo, setStorageInfo] = useState<{

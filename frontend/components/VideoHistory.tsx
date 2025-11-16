@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
 */
 import React from 'react';
-import { GenerateVideoParams } from '../types';
+import { GenerateVideoParams } from '../src/types';
 
 interface VideoHistoryProps {
   history: { videoUrl: string; lastConfig: GenerateVideoParams }[];

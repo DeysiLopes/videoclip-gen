@@ -8,7 +8,7 @@ import {
   ImageFile,
   ProjectConfig,
   Resolution,
-} from '../types';
+} from '../src/types';
 import AudioTrackManager from './AudioTrackManager';
 import {
   ArrowRightIcon,

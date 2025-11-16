@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
 */
 import React, { useRef, useState } from 'react';
-import { Scene, SceneStatus } from '../types';
+import { Scene, SceneStatus } from '../src/types';
 
 interface VisualTimelineProps {
   scenes: Scene[];

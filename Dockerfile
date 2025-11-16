@@ -1,22 +1,25 @@
 # Dockerfile
-# Multi-stage build para DreamDirector AI
+# Multi-stage build para DreamDirector AI - Estrutura Monorepo
 
 # Stage 1: Build stage
 FROM node:18-alpine AS builder
 
 WORKDIR /app
 
-# Copiar package files
+# Copiar package files da raiz (monorepo)
 COPY package*.json ./
 
-# Instalar TODAS as dependências (incluindo devDependencies para build)
-RUN npm install
+# Copiar package files do frontend
+COPY frontend/package*.json ./frontend/
 
-# Copiar source code
-COPY . .
+# Instalar dependências (npm ci é mais seguro que npm install em produção)
+RUN npm ci
+
+# Copiar código fonte
+COPY frontend ./frontend
 
 # Build da aplicação React + Vite
-RUN npm run build
+RUN npm run build:frontend
 
 # Stage 2: Runtime stage (produção)
 FROM nginx:alpine
@@ -27,10 +30,10 @@ WORKDIR /usr/share/nginx/html
 RUN rm -rf /etc/nginx/conf.d/*
 
 # Copiar arquivos de build do stage anterior
-COPY --from=builder /app/dist ./
+COPY --from=builder /app/frontend/dist ./
 
 # Copiar FFmpeg files do node_modules para servir localmente (corrige CORS)
-COPY --from=builder /app/node_modules/@ffmpeg/core/dist/esm ./ffmpeg/
+COPY --from=builder /app/frontend/node_modules/@ffmpeg/core/dist/esm ./ffmpeg/
 
 # Copiar nginx config
 COPY nginx.conf /etc/nginx/nginx.conf

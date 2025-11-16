@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
 */
 import React, {useEffect, useRef, useState} from 'react';
-import {Scene, SceneStatus} from '../types';
+import {Scene, SceneStatus} from '../src/types';
 import {
   ApproveIcon,
   ArrowPathIcon,
@@ -15,7 +15,7 @@ import {
   UploadIcon,
 } from './icons';
 import LoadingIndicator from './LoadingIndicator';
-import {getVideoDuration} from '../services/utils';
+import {getVideoDuration} from '../src/services/utils';
 
 const formatSeconds = (totalSeconds: number): string => {
   if (isNaN(totalSeconds) || totalSeconds < 0) return '00:00';

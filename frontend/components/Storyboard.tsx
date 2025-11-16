@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
 */
 import React, {useCallback, useEffect, useRef, useState} from 'react';
-import {ProjectConfig, Scene, SceneStatus} from '../types';
+import {ProjectConfig, Scene, SceneStatus} from '../src/types';
 import {
   ArrowLeftIcon,
   ArrowRightIcon,

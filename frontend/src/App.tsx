@@ -4,12 +4,12 @@
 */
 import {Video} from '@google/genai';
 import React, {useCallback, useEffect, useRef, useState} from 'react';
-import ApiKeyDialog from './components/ApiKeyDialog';
-import FinalCut from './components/FinalCut';
-import LocalApiKeyDialog from './components/LocalApiKeyDialog';
-import ProjectSetup from './components/ProjectSetup';
-import StorageMonitor from './components/StorageMonitor';
-import Storyboard from './components/Storyboard';
+import ApiKeyDialog from '../components/ApiKeyDialog';
+import FinalCut from '../components/FinalCut';
+import LocalApiKeyDialog from '../components/LocalApiKeyDialog';
+import ProjectSetup from '../components/ProjectSetup';
+import StorageMonitor from '../components/StorageMonitor';
+import Storyboard from '../components/Storyboard';
 import {dbService} from './services/dbService';
 import {generateVideo} from './services/geminiService';
 import {getVideoDuration} from './services/utils';

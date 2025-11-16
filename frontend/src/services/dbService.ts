@@ -2,7 +2,7 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
 */
-import { ProjectConfig, Scene } from '../types';
+import { ProjectConfig, Scene } from '../src/types';
 
 const DB_NAME = 'dreamdirectorDB';
 const DB_VERSION = 2; // Incrementado para nova estrutura

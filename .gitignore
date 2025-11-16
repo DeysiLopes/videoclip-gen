@@ -7,18 +7,56 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# Dependencies
 node_modules
+frontend/node_modules
+backend/node_modules
+
+# Build outputs
 dist
 dist-ssr
 *.local
+frontend/dist
+backend/dist
+database/dist
 
-# Editor directories and files
-.vscode/*
-!.vscode/extensions.json
-.idea
+# Dev
 .DS_Store
-*.suo
+*.su
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
+
+# Editor
+.vscode/*
+!.vscode/extensions.json
+.idea
+.idea/*
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Database
+*.sqlite
+*.sqlite3
+database/data.sqlite
+backend/data.sqlite
+/data
+
+# Temporary
+tmp/
+temp/
+*.tmp
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Monorepo scripts
+reorganize-frontend.sh
+
+

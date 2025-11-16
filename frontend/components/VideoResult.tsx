@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
 */
 import React, {useEffect, useRef} from 'react';
-import {GenerateVideoParams} from '../types';
+import {GenerateVideoParams} from '../src/types';
 import {ArrowPathIcon, PlusIcon, SparklesIcon} from './icons';
 
 interface VideoResultProps {
