@@ -43,6 +43,19 @@ const Storyboard: React.FC<StoryboardProps> = ({
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [audioUrl, setAudioUrl] = useState<string | null>(projectConfig.audioUrl ?? null);
+
+  // 🆕 Garantir que audioUrl existe quando audioFile está disponível
+  useEffect(() => {
+    if (projectConfig.audioFile && !audioUrl) {
+      console.log('[Storyboard] 🔧 Criando audioUrl do audioFile...');
+      const url = URL.createObjectURL(projectConfig.audioFile);
+      setAudioUrl(url);
+      return () => {
+        URL.revokeObjectURL(url);
+      };
+    }
+  }, [projectConfig.audioFile, audioUrl]);
 
   const activeScene = scenes.find(s => {
     const sceneDuration = s.intendedDuration ?? s.duration;
@@ -70,7 +83,9 @@ const Storyboard: React.FC<StoryboardProps> = ({
   const handleLoadedMetadata = useCallback(() => {
      if (audioRef.current) {
        // Fix: Property 'duration' does not exist on type 'HTMLAudioElement'.
-       setDuration((audioRef.current as any).duration);
+       const audioDuration = (audioRef.current as any).duration;
+       console.log(`[Storyboard] ✅ Áudio carregado com sucesso - Duração: ${audioDuration.toFixed(2)}s`);
+       setDuration(audioDuration);
     }
   }, []);
 
@@ -109,18 +124,26 @@ const Storyboard: React.FC<StoryboardProps> = ({
 
   return (
     <div className="w-full h-full flex flex-col">
-      {projectConfig.audioUrl && (
+      {audioUrl && (
         <div className="mb-4 p-4 bg-gray-800 rounded-xl border border-gray-700 w-full flex-shrink-0">
           <h3 className="text-lg font-semibold text-white mb-2">Faixa de Áudio</h3>
           <audio 
             ref={audioRef} 
-            src={projectConfig.audioUrl} 
-            controls 
+            src={audioUrl}
+            controls
+            crossOrigin="anonymous"
             className="w-full"
-            onPlay={() => setIsPlaying(true)}
-            onPause={() => setIsPlaying(false)}
+            onPlay={() => {
+              console.log('[Storyboard] ▶️ Áudio iniciou reprodução');
+              setIsPlaying(true);
+            }}
+            onPause={() => {
+              console.log('[Storyboard] ⏸️ Áudio pausado');
+              setIsPlaying(false);
+            }}
             onTimeUpdate={handleTimeUpdate}
             onLoadedMetadata={handleLoadedMetadata}
+            onError={(e) => console.error('[Storyboard] ❌ Erro ao carregar áudio:', e)}
            />
            <VisualTimeline
               scenes={scenes}

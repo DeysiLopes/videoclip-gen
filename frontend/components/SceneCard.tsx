@@ -219,8 +219,9 @@ const SceneCard: React.FC<SceneCardProps> = ({
             <>
               <video 
                 ref={videoRef}
-                src={scene.videoUrl} 
-                muted 
+                src={scene.videoUrl}
+                crossOrigin="anonymous"
+                muted
                 loop 
                 playsInline 
                 className="w-full h-full object-cover cursor-pointer"

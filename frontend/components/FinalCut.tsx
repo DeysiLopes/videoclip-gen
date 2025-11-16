@@ -415,6 +415,7 @@ const FinalCut: React.FC<FinalCutProps> = ({
           ref={videoRef}
           key={activeScene?.id}
           src={activeScene?.videoUrl}
+          crossOrigin="anonymous"
           muted
           loop
           playsInline
@@ -434,10 +435,18 @@ const FinalCut: React.FC<FinalCutProps> = ({
           <audio
             ref={audioRef}
             src={audioUrl}
+            crossOrigin="anonymous"
             onTimeUpdate={handleTimeUpdate}
             onLoadedMetadata={handleLoadedMetadata}
-            onPlay={() => setIsPlaying(true)}
-            onPause={() => setIsPlaying(false)}
+            onPlay={() => {
+              console.log('[FinalCut] ▶️ Áudio iniciou reprodução');
+              setIsPlaying(true);
+            }}
+            onPause={() => {
+              console.log('[FinalCut] ⏸️ Áudio pausado');
+              setIsPlaying(false);
+            }}
+            onError={(e) => console.error('[FinalCut] ❌ Erro ao carregar áudio:', e)}
             controls
             className="w-full"
           />
