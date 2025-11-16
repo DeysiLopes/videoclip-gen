@@ -200,13 +200,9 @@ const App: React.FC = () => {
         }
       } else {
         // Local or deployed environment
-        // Fix: Cannot find name 'localStorage'.
-        const storedKey = (window as any).localStorage.getItem('gemini-api-key');
-        if (storedKey) {
-          setLocalApiKey(storedKey);
-        } else {
-          setShowLocalApiKeyDialog(true);
-        }
+        // 🆕 SEMPRE solicitar a chave (não salvar no localStorage)
+        console.log('[App] Solicitando Gemini API Key...');
+        setShowLocalApiKeyDialog(true);
       }
 
       // 2. Initialize DB and load data
@@ -353,8 +349,7 @@ const App: React.FC = () => {
   const handleLocalApiKeySave = (key: string) => {
     if (key.trim()) {
       const trimmedKey = key.trim();
-      // Fix: Cannot find name 'localStorage'.
-      (window as any).localStorage.setItem('gemini-api-key', trimmedKey);
+      // 🆕 NÃO salvar no localStorage - sempre solicitar a chave
       setLocalApiKey(trimmedKey);
       setShowLocalApiKeyDialog(false);
     }
