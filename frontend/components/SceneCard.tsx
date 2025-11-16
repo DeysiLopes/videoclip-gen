@@ -52,6 +52,9 @@ const SceneCard: React.FC<SceneCardProps> = ({
 }) => {
   const [isEditing, setIsEditing] = useState(scene.status === SceneStatus.DRAFT);
   const [prompt, setPrompt] = useState(scene.prompt);
+  const [showUploadDurationModal, setShowUploadDurationModal] = useState(false);
+  const [uploadDuration, setUploadDuration] = useState<number>(scene.intendedDuration ?? 35);
+  const [uploadingFile, setUploadingFile] = useState<File | null>(null);
   // Fix: Cannot find name 'HTMLTextAreaElement'.
   const textareaRef = useRef<any>(null);
   // Fix: Cannot find name 'HTMLVideoElement'.
@@ -129,24 +132,38 @@ const SceneCard: React.FC<SceneCardProps> = ({
     const file = (e.target as any).files?.[0];
     if (!file) return;
 
+    // Armazenar arquivo e mostrar modal para pedir duração
+    setUploadingFile(file);
+    setUploadDuration(scene.intendedDuration ?? 35); // Usar duração planejada ou padrão
+    setShowUploadDurationModal(true);
+  };
+
+  const handleConfirmUpload = async () => {
+    if (!uploadingFile) return;
+
     onUpdate(scene.id, {status: SceneStatus.GENERATING}); // Show a loading state
 
     try {
-      const videoBlob = new Blob([file], {type: file.type});
+      const videoBlob = new Blob([uploadingFile], {type: uploadingFile.type});
       const objectUrl = URL.createObjectURL(videoBlob);
-      const duration = await getVideoDuration(objectUrl);
+      const actualDuration = await getVideoDuration(objectUrl);
+
+      console.log(`[Upload] Vídeo upload: duração real=${actualDuration.toFixed(2)}s, duração desejada=${uploadDuration}s`);
 
       onUpdate(scene.id, {
         status: SceneStatus.GENERATED,
         videoUrl: objectUrl,
         videoBlob: videoBlob,
-        duration: duration,
+        duration: actualDuration,
+        intendedDuration: uploadDuration, // ✅ Armazenar duração desejada
         errorMessage: undefined,
         errorType: undefined,
         isUploaded: true,
         videoObject: undefined, // ensure no stale videoObject
       });
       setIsEditing(false); // Exit editing mode on successful upload
+      setShowUploadDurationModal(false);
+      setUploadingFile(null);
     } catch (error) {
       console.error('Video upload failed:', error);
       onUpdate(scene.id, {
@@ -294,6 +311,61 @@ const SceneCard: React.FC<SceneCardProps> = ({
         )}
         </div>
       </div>
+
+      {/* Modal para selecionar duração desejada ao fazer upload */}
+      {showUploadDurationModal && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-800 border border-gray-700 rounded-2xl shadow-xl max-w-sm w-full p-6">
+            <h3 className="text-xl font-bold text-white mb-4">⏱️ Duração do Loop</h3>
+            <p className="text-gray-300 mb-4">
+              O vídeo será repetido (loop) até alcançar a duração definida abaixo.
+            </p>
+
+            <div className="mb-6">
+              <label className="block text-sm text-gray-400 mb-2">
+                Duração Desejada (segundos)
+              </label>
+              <input
+                type="number"
+                value={uploadDuration}
+                onChange={(e) => setUploadDuration(Math.max(1, parseFloat(e.target.value) || 1))}
+                min="1"
+                max="300"
+                step="1"
+                className="w-full bg-gray-900 border border-gray-600 rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              />
+              <p className="text-xs text-gray-500 mt-2">
+                Mínimo: 1s | Máximo: 300s (5 min)
+              </p>
+            </div>
+
+            <div className="mb-4 p-3 bg-indigo-900/30 border border-indigo-600/50 rounded-lg">
+              <p className="text-sm text-indigo-300">
+                💡 Exemplo: Se o vídeo tem 8s e você quer 35s, ele fará loop ~4 vezes.
+              </p>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowUploadDurationModal(false);
+                  setUploadingFile(null);
+                  setUploadDuration(35);
+                }}
+                className="flex-1 px-4 py-2 bg-gray-700 rounded-lg hover:bg-gray-600 transition-colors text-sm font-semibold"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleConfirmUpload}
+                className="flex-1 px-4 py-2 bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors text-sm font-semibold text-white"
+              >
+                Confirmar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
