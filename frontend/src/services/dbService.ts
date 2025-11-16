@@ -274,22 +274,6 @@ const getProjectConfig = async (): Promise<ProjectConfig | null> => {
   });
 };
 
-const checkStorageQuota = async (): Promise<{ usage: number; quota: number; available: number }> => {
-  if (navigator.storage && navigator.storage.estimate) {
-    try {
-        const estimate = await navigator.storage.estimate();
-        return {
-          usage: estimate.usage ?? 0,
-          quota: estimate.quota ?? 0,
-          available: (estimate.quota ?? 0) - (estimate.usage ?? 0)
-        };
-    } catch (error) {
-        console.warn("Could not estimate storage quota:", error);
-        return { usage: 0, quota: 0, available: 0 };
-    }
-  }
-  return { usage: 0, quota: 0, available: 0 };
-};
 
 const clearProject = async (): Promise<void> => {
   const currentDb = await getDB();
@@ -322,6 +306,5 @@ export const dbService = {
   clearProject,
   saveProjectConfig,
   getProjectConfig,
-  checkStorageQuota,
   validateBlob,
 };
