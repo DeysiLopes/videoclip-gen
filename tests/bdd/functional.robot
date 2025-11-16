@@ -77,15 +77,15 @@ FT-005: Upload de arquivo de áudio
     Given Abro a aplicação
     When Seleciono arquivo de áudio "sample.mp3"
     Then Arquivo deve ser carregado com sucesso
-    And Devo ver mensagem "Áudio carregado"
+    And Devo ver preview do áudio com player
 
 FT-006: Validar tipo de arquivo de áudio
     [Documentation]    Apenas arquivos de áudio devem ser aceitos
     [Tags]    setup    validation    important
 
     Given Abro a aplicação
-    When Tento fazer upload de arquivo "imagem.png"
-    Then Devo ver erro "Apenas arquivos de áudio"
+    When Vejo o campo de upload de áudio
+    Then Deve aceitar tipos audio/mpeg e audio/mp3
 
 FT-007: Prosseguir para storyboard
     [Documentation]    Clicar em próximo deve ir para storyboard
@@ -180,27 +180,29 @@ FT-015: Aprovação de cena
 # ============================================================================
 
 FT-016: Renderizar vídeo da cena aprovada
-    [Documentation]    Gerar vídeo para cena aprovada
+    [Documentation]    Gerar vídeo para cena aprovada - Backend FFmpeg
     [Tags]    rendering    critical    ai
 
     Given Tenho cena aprovada
     When Clico em "Gerar Vídeo"
     Then Devo ver progresso de renderização
-    And Vídeo deve ser gerado
-    And Status deve mudar para "GERADO"
+    And Backend deve renderizar via FFmpeg
+    And Status deve mudar para "GENERATED"
+    And Vídeo deve estar disponível em /renders
 
 FT-017: Visualizar vídeo gerado
-    [Documentation]    Player deve mostrar vídeo gerado
+    [Documentation]    Reproduzir vídeo gerado no player HTML5
     [Tags]    rendering    preview    important
 
     Given Vídeo foi gerado
-    When Clico em Play
-    Then Vídeo deve reproduzir
+    When Abro o preview do vídeo
+    Then <video> tag deve carregar
+    And Devo poder clicar Play
     And Devo poder pausar/retomar
-    And Devo poder mover timeline
+    And Timeline deve ser interativa
 
 FT-018: Controles do player de vídeo
-    [Documentation]    Player deve ter todos os controles
+    [Documentation]    Player HTML5 deve ter controles nativos
     [Tags]    rendering    controls    important
 
     Given Vídeo está carregado
@@ -208,91 +210,98 @@ FT-018: Controles do player de vídeo
     Then Devo poder:
     And Aumentar/diminuir volume
     And Mover pela timeline
-    And Fullscreen
-    And Velocidade de reprodução
+    And Fullscreen (se suportado)
 
 FT-019: Timing automático de cenas
-    [Documentation]    Cenas devem respeitar duração do áudio
+    [Documentation]    Sincronização áudio/vídeo via FFmpeg -shortest
     [Tags]    rendering    timing    critical
 
-    Given Tenho múltiplas cenas geradas
-    And Duração total deve ser próxima ao áudio
+    Given Tenho 5 cenas de 8s cada + áudio de 3:01
     When Renderizo vídeo final
-    Then Vídeo final deve ter mesma duração do áudio
-    And Cenas devem estar sincronizadas
+    Then Vídeo final deve ter 3:01 (matching áudio)
+    And FFmpeg usa setpts para escalar vídeos
+    And -shortest sincroniza com áudio
 
 FT-020: Download de vídeo gerado
-    [Documentation]    Poder fazer download do vídeo final
+    [Documentation]    Download via API GET /api/download/:jobId
     [Tags]    rendering    download    important
 
     Given Vídeo foi renderizado
     When Clico em "Baixar Vídeo"
-    Then Arquivo MP4 deve ser baixado
-    And Nome deve conter "DreamDirector"
+    Then Browser faz GET para /api/download/:jobId
+    And Arquivo MP4 é servido
+    And Nome arquivo: DreamDirector_Preview.mp4
 
 # ============================================================================
 # CENÁRIO 4: CORTE FINAL
 # ============================================================================
 
 FT-021: Acessar página de corte final
-    [Documentation]    Poder ir para página de corte final
+    [Documentation]    Ir para etapa 3 Corte Final
     [Tags]    finalcut    navigation    critical
 
-    Given Cenas foram aprovadas e renderizadas
-    When Clico em "Ir para Corte Final"
-    Then Devo estar na etapa 3
-    And Devo ver preview de todas as cenas
-    And Devo ver timeline visual
+    Given Cenas foram aprovadas
+    When Clico em "Ir para o Corte Final"
+    Then Estou na etapa 3
+    And Devo ver <video> player com primeira cena
+    And Devo ver <audio> player com música
+    And Devo ver VisualTimeline com barras de cenas
 
 FT-022: Reprodução sincronizada de vídeos
-    [Documentation]    Vídeos devem reproduzir sincronizados com áudio
+    [Documentation]    Áudio e vídeo tocam sincronizados
     [Tags]    finalcut    playback    critical
 
     Given Estou na página Corte Final
-    When Clico em Play
-    Then Áudio deve começar
-    And Vídeo correto deve reproduzir para cada momento
-    And Transição entre cenas deve ser suave
+    When Clico Play no <audio>
+    Then Áudio começa a tocar
+    And activeScene muda conforme currentTime
+    And <video> player sincroniza com <audio>
+    And Transição automática entre cenas
 
 FT-023: Navegação na timeline
-    [Documentation]    Poder navegar pela timeline do vídeo
+    [Documentation]    Clicar na timeline pula para momento
     [Tags]    finalcut    timeline    important
 
     Given Vídeo está reproduzindo
-    When Clico em ponto da timeline
-    Then Player deve pular para aquele momento
-    And Cena correta deve ser mostrada
+    When Clico em ponto da VisualTimeline
+    Then <audio> salta para aquele tempo
+    And activeScene atualiza
+    And <video> player sincroniza
 
 FT-024: Renderizar vídeo final com FFmpeg
-    [Documentation]    Concatenar todas as cenas com áudio
+    [Documentation]    POST /api/render + FFmpeg Backend
     [Tags]    finalcut    rendering    critical
 
     Given Cenas foram aprovadas
-    When Clico em "Renderizar Vídeo Final"
-    Then Devo ver progresso
-    And Sistema deve usar FFmpeg
-    And Vídeo final deve ter todas as cenas
-    And Áudio deve estar sincronizado
+    When Clico em "Renderizar Vídeo"
+    Then Frontend envia POST /api/render
+    And Backend recebe FormData com 5 vídeos + áudio
+    And FFmpeg concatena com setpts
+    And Devo ver RenderProgressDialog com status
+    And Job status: queued → processing → completed
 
 FT-025: Download de vídeo final
-    [Documentation]    Fazer download do vídeo final completo
+    [Documentation]    Download via API GET /api/download/:jobId
     [Tags]    finalcut    download    critical
 
     Given Vídeo final foi renderizado
     When Clico em "Baixar"
-    Then Arquivo MP4 deve ser baixado
-    And Tamanho deve ser ~ 10MB
-    And Deve poder ser reproduzido em qualquer player
+    Then Backend serve GET /api/download/:jobId
+    And Arquivo MP4 é entregue (~9-10MB)
+    And Nome: DreamDirector_FinalCut.mp4
+    And Pode ser reproduzido em qualquer player
 
 FT-026: Ver amostra rápida
-    [Documentation]    Gerar amostra rápida com 5 segundos de cada cena
+    [Documentation]    Renderizar versão preview (5s cada cena)
     [Tags]    finalcut    preview    important
 
     Given Cenas foram aprovadas
-    When Clico em "Ver Amostra (5s)"
-    Then Sistema deve renderizar versão leve
-    And Devo ver 5 segundos de cada cena
-    And Tempo de renderização deve ser < 2 minutos
+    When Clico em "📹 Ver Amostra (5 seg cada cena)"
+    Then Frontend envia POST /api/render (preview mode)
+    And FFmpeg renderiza apenas 5s por cena
+    And Devo ver RenderProgressDialog
+    And Tempo total < 2 minutos
+    And Download automático após conclusão
 
 # ============================================================================
 # CENÁRIO 5: FLUXO COMPLETO
@@ -316,194 +325,186 @@ FT-027: Fluxo completo de criação de vídeo
     And Devo poder fazer download
 
 FT-028: Histórico de projetos
-    [Documentation]    Poder visualizar histórico de projetos criados
-    [Tags]    history    important    storage
+    [Documentation]    ❌ NÃO IMPLEMENTADO - Feature futura
+    [Tags]    history    important    storage    notimplemented
 
     Given Criei vários projetos
     When Acesso "Histórico de Projetos"
-    Then Devo ver lista de todos os projetos
-    And Cada projeto deve ter data e duração
-    And Posso clicar para retomar projeto
+    Then [TODO] Devo ver lista de todos os projetos
+    And [TODO] Cada projeto deve ter data e duração
 
 FT-029: Salvar projeto em andamento
-    [Documentation]    Projeto deve ser salvo automaticamente
-    [Tags]    storage    critical    persistence
+    [Documentation]    ⚠️ PARCIAL - localStorage não persiste completamente
+    [Tags]    storage    critical    persistence    wip
 
     Given Estou criando um projeto
-    When Preencho dados e gero cenas
+    When Preencho nome e áudio
     And Recarrego a página
-    Then Projeto deve ser restaurado
-    And Dados devem estar intactos
-    And Cenas devem estar presentes
+    Then [BUG] Volta para Configuração (não persiste step)
+    And [TODO] Deve restaurar projectConfig de localStorage
+    And [TODO] Deve restaurar scenes
 
 FT-030: Retomar projeto salvo
-    [Documentation]    Poder continuar projeto anterior
-    [Tags]    storage    workflow    important
+    [Documentation]    ⚠️ PARCIAL - Dependente de FT-029
+    [Tags]    storage    workflow    important    wip
 
-    Given Tenho projeto salvo anteriormente
-    When Clico em "Retomar"
-    Then Devo voltar para o ponto onde parei
-    And Todas as cenas devem estar lá
-    And Posso continuar editando
+    Given [TODO] Tenho projeto salvo anteriormente
+    When [TODO] Clico em "Retomar"
+    Then [TODO] Devo voltar para o ponto onde parei
+    And [TODO] Todas as cenas devem estar lá
 
 # ============================================================================
 # CENÁRIO 6: TRATAMENTO DE ERROS
 # ============================================================================
 
-FT-031: Erro ao conectar com IA
-    [Documentation]    Tratamento de erro quando IA não responde
+FT-031: Erro ao conectar com IA (Gemini)
+    [Documentation]    Tratamento de erro quando Gemini API falha
     [Tags]    error    important    resilience
 
-    Given Estou gerando cenas
-    And Conexão com IA falha
-    When Clico em "Gerar"
-    Then Devo ver mensagem de erro
+    Given Chave API Gemini é inválida
+    When Clico em "Gerar Cenas"
+    Then Sistema deve mostrar erro
+    And Mensagem: "Falha ao gerar cenas"
     And Posso tentar novamente
 
 FT-032: Erro ao renderizar vídeo
-    [Documentation]    Tratamento de erro durante renderização
+    [Documentation]    Tratamento de erro durante FFmpeg Backend
     [Tags]    error    important    resilience
 
-    Given Clico em renderizar
-    And FFmpeg não consegue processar
-    When Renderização falha
-    Then Erro deve ser mostrado
+    Given Clico em "Renderizar Vídeo"
+    And FFmpeg/Backend falha
+    When Job status = "failed"
+    Then RenderProgressDialog mostra erro
     And Posso tentar novamente
 
 FT-033: Arquivo de áudio inválido
-    [Documentation]    Rejeitar arquivo de áudio inválido
+    [Documentation]    Rejeitar arquivo corrompido/invalido
     [Tags]    error    validation    important
 
-    Given Tento fazer upload de arquivo corrompido
-    When Sistema tenta processar
-    Then Erro deve ser mostrado
-    And Devo poder tentar outro arquivo
+    Given Tendo arquivo MP3 corrompido
+    When Tenta fazer upload
+    Then Áudio player não carrega
+    And [TODO] Deveria mostrar erro
 
 FT-034: Timeout em operação longa
-    [Documentation]    Tratamento de timeout
-    [Tags]    error    resilience    important
+    [Documentation]    ⚠️ Operações longas podem timeout
+    [Tags]    error    resilience    important    wip
 
-    Given Estou renderizando
-    And Operação demora muito
-    When Timeout é atingido
-    Then Mensagem de timeout deve aparecer
-    And Posso retomar
+    Given Estou renderizando video (10 minutos+)
+    When Browser timeout ou conexão cai
+    Then [TODO] Recuperar de timeout
+    And [TODO] Mostrar mensagem adequada
 
 # ============================================================================
 # CENÁRIO 7: PERFORMANCE E UX
 # ============================================================================
 
 FT-035: Página carrega em tempo razoável
-    [Documentation]    Aplicação deve carregar rápido
+    [Documentation]    Frontend carrega rápido
     [Tags]    performance    critical
 
-    Given Abro a aplicação
+    Given Abro http://localhost:5173
     Then Deve carregar em < 3 segundos
     And UI deve ser responsiva
+    And Tailwind CSS carregado
 
 FT-036: Operações não travam UI
-    [Documentation]    UI não deve travar durante operações
+    [Documentation]    Geração de cenas com IA não congela
     [Tags]    performance    critical
 
-    Given Estou gerando cenas
-    When IA está processando
-    Then UI deve permanecer responsiva
-    And Posso clicar em outros elementos
+    Given Estou na Storyboard
+    When Clico em "Gerar Cenas" (Gemini IA)
+    Then UI permanece responsiva
+    And Posso scrollar/clicar em outros elementos
 
 FT-037: Responsivo em mobile
-    [Documentation]    Aplicação deve funcionar em mobile
+    [Documentation]    Aplicação funciona em 375x667
     [Tags]    responsive    important
 
-    Given Abro aplicação em 375x667
+    Given Abro em viewport 375x667
     When Navego pela aplicação
-    Then Deve funcionar corretamente
-    And Layout deve se adaptar
+    Then Layout se adapta
+    And Todos os botões são clicáveis
+    And Sem scroll horizontal desnecessário
 
 FT-038: Dark mode mantém usabilidade
-    [Documentation]    Dark mode não deve quebrar funcionalidades
+    [Documentation]    Dark mode está implementado (Tailwind)
     [Tags]    ux    important
 
-    Given Ativo dark mode
+    Given Aplicação está em dark mode
     When Navego pela aplicação
-    Then Tudo deve funcionar normalmente
-    And Contraste deve ser bom
+    Then bg-black, text-white
+    And Contraste >= 4.5:1
+    And Todos elementos visíveis
 
 FT-039: Confirmação antes de deletar
-    [Documentation]    Ações destrutivas devem pedir confirmação
-    [Tags]    ux    critical
+    [Documentation]    ⚠️ PARCIAL - Deletar cena não pede confirmação
+    [Tags]    ux    critical    wip
 
     Given Vou deletar uma cena
-    When Clico em deletar
-    Then Devo ver modal de confirmação
-    And Posso cancelar
+    When Clico em ícone lixeira
+    Then [TODO] Deveria mostrar modal de confirmação
+    And [TODO] Posso cancelar ou confirmar
 
 FT-040: Feedback visual para ações
-    [Documentation]    Ações devem dar feedback visual
+    [Documentation]    Loading spinners mostram progresso
     [Tags]    ux    important
 
-    Given Clico em um botão
-    When Ele é processado
-    Then Devo ver loading spinner
-    And Após completar devo ver confirmação
+    Given Clico em "Gerar" ou "Renderizar"
+    When Operação é processada
+    Then RenderProgressDialog mostra status
+    And Barra de progresso atualiza
+    And Após completar arquivo é disponibilizado
 
 # ============================================================================
-# CENÁRIO 8: ARMAZENAMENTO E COTA
+# CENÁRIO 9: ARMAZENAMENTO E COTA (ATUALIZADO)
 # ============================================================================
 
-FT-041: Monitorar uso de armazenamento
-    [Documentation]    Sistema deve mostrar quanto armazenamento está usando
-    [Tags]    storage    important
+FT-041: Monitor de armazenamento
+    [Documentation]    ❌ REMOVIDO - Feature foi descontinuada
+    [Tags]    storage    archived    notimplemented
 
-    Given Tenho vários projetos
-    When Abro aplicação
-    Then Devo ver monitor de armazenamento
-    And Deve mostrar percentual usado
+    Given Abro a aplicação
+    Then [REMOVED] Monitor de armazenamento foi removido
+    And [REMOVED] Não há mais "15.8 / 287471 MB"
 
-FT-042: Alerta quando atingir limite
-    [Documentation]    Alerta quando próximo ao limite
-    [Tags]    storage    important
+FT-042: Limpeza automática de arquivos
+    [Documentation]    ⚠️ PARCIAL - Cleanup não implementado
+    [Tags]    storage    backend    wip
 
-    Given Estou usando 80% de armazenamento
-    When Clico em gerar novo vídeo
-    Then Devo ver aviso
-    And Posso continuar ou deletar antigos
+    Given Renderizei vários vídeos
+    When 24 horas passam
+    Then [TODO] Backend deveria limpar /tmp
+    And [TODO] Backend deveria limpar /renders antigos
+    And [TODO] Só manter últimos 7 dias
 
-FT-043: Deletar projeto libera espaço
-    [Documentation]    Deletar projeto deve liberar espaço
-    [Tags]    storage    important
+FT-043: Persistência de sessão
+    [Documentation]    ⚠️ PARCIAL - Apenas localStorage, sem IndexedDB
+    [Tags]    storage    persistence    wip
 
-    Given Deleto um projeto grande
-    When Confirmo deleção
-    Then Espaço deve ser liberado
-    And Monitor deve ser atualizado
+    Given Estou criando um projeto
+    When Recarrego a página F5
+    Then [BUG] Volta para Configuração
+    And [TODO] Deveria restaurar state de localStorage
+    And [TODO] Implementar IndexedDB para dados grandes
 
-# ============================================================================
-# CENÁRIO 9: INTEGRAÇÕES
-# ============================================================================
+FT-044: Exportar projeto
+    [Documentation]    ❌ NÃO IMPLEMENTADO
+    [Tags]    storage    export    notimplemented
 
-FT-044: Integração com Gemini API
-    [Documentation]    Verificar que Gemini API está sendo usada
-    [Tags]    integration    critical    ai
+    Given Tenho projeto completo
+    When [TODO] Clico em "Exportar"
+    Then [TODO] Arquivo JSON deve ser baixado
+    And [TODO] Posso compartilhar projeto
 
-    Given Gero cenas
-    Then Prompts devem vir do Gemini
-    And Qualidade deve ser boa
+FT-045: Importar projeto
+    [Documentation]    ❌ NÃO IMPLEMENTADO
+    [Tags]    storage    import    notimplemented
 
-FT-045: Integração com FFmpeg
-    [Documentation]    Verificar que FFmpeg está sendo usado
-    [Tags]    integration    critical    rendering
-
-    Given Renderizo vídeo final
-    Then FFmpeg deve estar sendo usado
-    And Qualidade de vídeo deve ser boa
-
-FT-046: Cache de vídeos gerados
-    [Documentation]    Vídeos devem ser cacheados
-    [Tags]    performance    important
-
-    Given Gero um vídeo
-    When Regenero o mesmo
-    Then Segunda renderização deve ser mais rápida
+    Given [TODO] Tenho arquivo JSON de projeto
+    When [TODO] Clico em "Importar"
+    Then [TODO] Projeto deve ser carregado
+    And [TODO] Todos os dados restaurados
 
 # ============================================================================
 # CENÁRIO 10: DADOS E BACKUP
@@ -1256,4 +1257,3 @@ Projeto deve ser carregado
 Dados devem estar corretos
     [Documentation]    Valida dados
     Log    Dados corretos
-

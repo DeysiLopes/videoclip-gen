@@ -1,0 +1,12 @@
+# Resultados de testes
+results/
+screenshots/
+*.log
+
+# Node modules
+node_modules/
+package-lock.json
+
+# Temporary files
+*.tmp
+.DS_Store
