@@ -273,6 +273,40 @@ curl http://localhost:3000/api/download/uuid-123 > video.mp4
 - ✅ Sanitização de paths (prevenção directory traversal)
 - ✅ Health checks em Docker
 
+## ♿ Acessibilidade
+
+Nosso compromisso é tornar o DreamDirector AI acessível para todos.
+
+**Conformidade WCAG 2.1 Nível AA:**
+- ✅ Navegação completa por teclado (Tab, Shift+Tab, Enter, Escape)
+- ✅ HTML semântico com ARIA labels apropriados
+- ✅ Contraste de cores 4.5:1+ em todos os textos
+- ✅ Suporte para screen readers (NVDA, JAWS, VoiceOver)
+- ✅ Focus visível em todos os elementos interativos
+- ✅ Componentes acessíveis reutilizáveis
+
+**Documentação:**
+- [Guia Completo de Acessibilidade](./doc/ACCESSIBILITY_GUIDE.md) - Princípios e implementação
+- [Checklist Prático](./doc/ACCESSIBILITY_CHECKLIST.md) - Usar antes de cada commit
+
+**Testar Acessibilidade:**
+```bash
+# Keyboard-only mode
+# 1. Desative o mouse
+# 2. Navegue com Tab, Shift+Tab, Enter, Setas
+# 3. Escape deve fechar modals
+
+# Screen Reader (Windows/Linux)
+# Instale NVDA: https://www.nvaccess.org/download/
+# Ative: NVDA+N → Start
+
+# Screen Reader (macOS)
+# VoiceOver: Cmd+F5
+
+# Validador Automático
+# Chrome DevTools → Lighthouse → Accessibility
+```
+
 ---
 
 ## 📚 Documentação Adicional
