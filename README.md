@@ -142,6 +142,22 @@ videoclip-gen/ (Monorepo)
   ```
 - **Docker** (opcional) - Para produção local
 
+### 🧹 Gerenciamento de Espaço em Disco
+
+O projeto possui limpeza automática de arquivos temporários:
+
+```bash
+# Limpeza manual imediata
+./cleanup.sh
+
+# Limpeza automática:
+# ✅ Ao iniciar backend (./start.sh)
+# ✅ A cada 6 horas (automático)
+# ✅ Remove arquivos >24h de idade
+```
+
+Veja [doc/CLEANUP_SYSTEM.md](doc/CLEANUP_SYSTEM.md) para detalhes completos.
+
 ### Opção 1: Desenvolvimento (Recomendado)
 
 ```bash

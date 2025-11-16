@@ -291,12 +291,35 @@ const checkStorageQuota = async (): Promise<{ usage: number; quota: number; avai
   return { usage: 0, quota: 0, available: 0 };
 };
 
+const clearProject = async (): Promise<void> => {
+  const currentDb = await getDB();
+
+  return new Promise((resolve, reject) => {
+    const transaction = currentDb.transaction([SCENES_STORE, BLOBS_STORE, CONFIG_STORE], 'readwrite');
+    transaction.oncomplete = () => {
+      console.log('[dbService] 🧹 Projeto limpo completamente');
+      resolve();
+    };
+    transaction.onerror = () => reject(transaction.error);
+
+    // Limpar cenas
+    transaction.objectStore(SCENES_STORE).clear();
+
+    // Limpar blobs
+    transaction.objectStore(BLOBS_STORE).clear();
+
+    // Limpar configuração
+    transaction.objectStore(CONFIG_STORE).clear();
+  });
+};
+
 export const dbService = {
   getDB,
   saveScene,
   getScenes,
   deleteScene,
   clearScenes,
+  clearProject,
   saveProjectConfig,
   getProjectConfig,
   checkStorageQuota,

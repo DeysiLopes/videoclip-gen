@@ -175,6 +175,19 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const initializeApp = async () => {
+      // 🆕 Verificar se é uma nova aba/janela
+      // sessionStorage é específico da aba, então se estiver vazio = nova aba
+      const isNewSession = !(window as any).sessionStorage.getItem('dreamdirector-session-initialized');
+
+      if (isNewSession) {
+        // Marcar esta sessão como inicializada
+        (window as any).sessionStorage.setItem('dreamdirector-session-initialized', 'true');
+
+        console.log('[App] 🆕 Nova aba detectada. Começando do zero.');
+        // Resetar qualquer dados da aba anterior
+        await dbService.clearProject();
+      }
+
       // 1. Check API Key
       if (window.aistudio) {
         // AI Studio environment

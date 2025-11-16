@@ -39,6 +39,63 @@ initDatabase();
 await fs.mkdir(TMP_DIR, { recursive: true });
 await fs.mkdir(OUTPUT_DIR, { recursive: true });
 
+// ==================== LIMPEZA AUTOMÁTICA ====================
+
+/**
+ * Limpar arquivos antigos (>24h) dos diretórios tmp e renders
+ * Evita acúmulo de espaço em disco
+ */
+const cleanupOldFiles = async (dirPath: string, maxAgeMs: number = 24 * 60 * 60 * 1000) => {
+  try {
+    const files = await fs.readdir(dirPath);
+    const now = Date.now();
+    let deletedCount = 0;
+    let deletedSize = 0;
+
+    for (const file of files) {
+      const filePath = path.join(dirPath, file);
+      const stats = await fs.stat(filePath);
+      const fileAgeMs = now - stats.mtimeMs;
+
+      if (fileAgeMs > maxAgeMs) {
+        try {
+          await fs.unlink(filePath);
+          deletedCount++;
+          deletedSize += stats.size;
+          console.log(`[Cleanup] Deleted: ${file} (${(stats.size / 1024 / 1024).toFixed(2)}MB)`);
+        } catch (err) {
+          console.warn(`[Cleanup] Failed to delete ${file}:`, err);
+        }
+      }
+    }
+
+    if (deletedCount > 0) {
+      console.log(`[Cleanup] ${dirPath}: Removed ${deletedCount} files (${(deletedSize / 1024 / 1024).toFixed(2)}MB freed)`);
+    }
+  } catch (err) {
+    console.warn(`[Cleanup] Error cleaning directory ${dirPath}:`, err);
+  }
+};
+
+/**
+ * Executar limpeza a cada 6 horas
+ */
+const startCleanupSchedule = () => {
+  // Executar imediatamente na inicialização
+  console.log('[Cleanup] Running initial cleanup...');
+  cleanupOldFiles(TMP_DIR);
+  cleanupOldFiles(OUTPUT_DIR);
+
+  // Depois, a cada 6 horas
+  setInterval(() => {
+    console.log('[Cleanup] Running scheduled cleanup...');
+    cleanupOldFiles(TMP_DIR);
+    cleanupOldFiles(OUTPUT_DIR);
+  }, 6 * 60 * 60 * 1000); // 6 horas
+};
+
+startCleanupSchedule();
+
 // ==================== ROTAS ====================
 
 /**
