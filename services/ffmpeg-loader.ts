@@ -10,7 +10,7 @@ let ffmpegSingleton: FFmpeg | null = null;
 export async function getFFmpeg() {
   if (ffmpegSingleton?.loaded) return ffmpegSingleton;
 
-  console.log('[FFmpeg Debug] Initializing FFmpeg (v0.12.10 ESM with toBlobURL)');
+  console.log('[FFmpeg Debug] Initializing FFmpeg with local files (CORS fix)');
 
   const ffmpeg = new FFmpeg();
 
@@ -19,21 +19,32 @@ export async function getFFmpeg() {
   });
 
   try {
-    console.log('[FFmpeg Debug] Loading FFmpeg from CDN...');
+    console.log('[FFmpeg Debug] Loading FFmpeg from local files...');
 
-    // Use ESM build with toBlobURL - most reliable approach
-    // This converts files to blob URLs to avoid CORS and import issues
-    const baseURL = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/esm';
+    // Use local files served by nginx (corrige CORS no GCP)
+    // Em produção: /ffmpeg/... vem do nginx
+    // Em dev: Vite serve de node_modules
+    const isDev = import.meta.env.DEV;
 
-    console.log('[FFmpeg Debug] Converting to blob URLs for CORS safety...');
+    let baseURL: string;
+
+    if (isDev) {
+      // Desenvolvimento: usar jsDelivr (funciona local)
+      baseURL = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/esm';
+      console.log('[FFmpeg Debug] Development mode: using jsDelivr CDN');
+    } else {
+      // Produção: usar files locais servidos pelo nginx
+      baseURL = '/ffmpeg';
+      console.log('[FFmpeg Debug] Production mode: using local files');
+    }
 
     try {
-      // Convert URLs to blob URLs to avoid cross-origin issues
+      // Tentar com toBlobURL (melhor performance)
       const coreURL = await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript');
       const wasmURL = await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm');
       const workerURL = await toBlobURL(`${baseURL}/ffmpeg-core.worker.js`, 'text/javascript');
 
-      console.log('[FFmpeg Debug] ✅ Blob URLs created, loading FFmpeg...');
+      console.log('[FFmpeg Debug] ✅ Blob URLs created');
 
       await ffmpeg.load({
         coreURL,
@@ -46,20 +57,23 @@ export async function getFFmpeg() {
     } catch (blobError) {
       console.warn('[FFmpeg Debug] toBlobURL failed, trying direct URLs:', blobError);
 
-      // Fallback: try jsDelivr with different path
-      const fallbackBaseURL = 'https://unpkg.com/@ffmpeg/core@0.12.10/dist/esm';
+      // Fallback: URLs diretos
+      const coreURL = `${baseURL}/ffmpeg-core.js`;
+      const wasmURL = `${baseURL}/ffmpeg-core.wasm`;
+      const workerURL = `${baseURL}/ffmpeg-core.worker.js`;
 
-      const coreURL = `${fallbackBaseURL}/ffmpeg-core.js`;
-      const wasmURL = `${fallbackBaseURL}/ffmpeg-core.wasm`;
-
-      console.log('[FFmpeg Debug] Trying fallback CDN (unpkg)...');
+      console.log('[FFmpeg Debug] Using direct URLs...');
+      console.log('[FFmpeg Debug] Core:', coreURL);
+      console.log('[FFmpeg Debug] WASM:', wasmURL);
+      console.log('[FFmpeg Debug] Worker:', workerURL);
 
       await ffmpeg.load({
         coreURL,
         wasmURL,
+        workerURL,
       });
 
-      console.log('[FFmpeg Debug] ✅ FFmpeg loaded from fallback CDN');
+      console.log('[FFmpeg Debug] ✅ FFmpeg loaded from direct URLs');
     }
 
   } catch (e) {

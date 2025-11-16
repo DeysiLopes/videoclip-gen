@@ -29,6 +29,9 @@ RUN rm -rf /etc/nginx/conf.d/*
 # Copiar arquivos de build do stage anterior
 COPY --from=builder /app/dist ./
 
+# Copiar FFmpeg files do node_modules para servir localmente (corrige CORS)
+COPY --from=builder /app/node_modules/@ffmpeg/core/dist/esm ./ffmpeg/
+
 # Copiar nginx config
 COPY nginx.conf /etc/nginx/nginx.conf
 
