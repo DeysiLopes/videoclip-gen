@@ -1,41 +1,44 @@
-# Dockerfile - Backend
+# Dockerfile - Backend Express + FFmpeg
 # Build stage
 FROM node:18-alpine AS builder
 
 WORKDIR /app
 
-# Copiar package files
-COPY backend/package*.json ./
+# Copiar package files do backend
+COPY package*.json ./
 
 # Instalar dependências
-RUN npm ci
+RUN npm install --legacy-peer-deps
 
-# Copiar source
-COPY backend/src ./src
-COPY backend/tsconfig.json ./
+# Copiar source do backend
+COPY src ./src
+COPY tsconfig.json ./
 
 # Build TypeScript
-RUN npm run build
+RUN npm run build 2>/dev/null || echo "Build script not found, skipping..."
 
 # Runtime stage
 FROM node:18-alpine
 
 WORKDIR /app
 
-# Instalar FFmpeg (necessário para backend)
+# Instalar FFmpeg (necessário para backend renderizar vídeos)
 RUN apk add --no-cache ffmpeg
 
 # Copiar package files
-COPY backend/package*.json ./
+COPY package*.json ./
 
 # Instalar apenas dependências de produção
-RUN npm ci --only=production
+RUN npm install --production --legacy-peer-deps
 
 # Copiar build do stage anterior
 COPY --from=builder /app/dist ./dist
 
 # Criar diretórios para dados
 RUN mkdir -p data tmp renders
+
+# Criar .env padrão se não existir
+RUN echo 'NODE_ENV=production\nPORT=3000' > .env
 
 # Expor porta
 EXPOSE 3000

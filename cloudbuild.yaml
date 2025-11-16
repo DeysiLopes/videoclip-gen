@@ -1,41 +1,89 @@
 # cloudbuild.yaml
-# This file defines the Continuous Integration/Deployment (CI/CD) pipeline for Google Cloud Build.
+# CI/CD Pipeline para DreamDirector AI (Frontend + Backend)
+# Constrói frontend e backend separadamente com contextos corretos
 
 steps:
-  # Step 1: Build the Docker container image.
-  # This command uses the Dockerfile in the current directory to build an image.
-  # The image is tagged with the location of your Artifact Registry, your project ID, and a name.
-  # $PROJECT_ID is a substitution variable automatically provided by Cloud Build.
+  # ============================================================================
+  # FRONTEND BUILD
+  # ============================================================================
   - name: 'gcr.io/cloud-builders/docker'
-    args: ['build', '-t', 'us-central1-docker.pkg.dev/$PROJECT_ID/videoclip-gen/videoclip-gen:latest', '.']
-    id: 'Build'
+    args:
+      - 'build'
+      - '-t'
+      - 'us-central1-docker.pkg.dev/$PROJECT_ID/videoclip-gen/frontend:latest'
+      - '-f'
+      - 'frontend/Dockerfile'
+      - 'frontend/'
+    id: 'Build-Frontend'
 
-  # Step 2: Push the container image to Google Artifact Registry.
-  # Artifact Registry is the recommended place to store your container images in GCP.
   - name: 'gcr.io/cloud-builders/docker'
-    args: ['push', 'us-central1-docker.pkg.dev/$PROJECT_ID/videoclip-gen/videoclip-gen:latest']
-    id: 'Push'
+    args:
+      - 'push'
+      - 'us-central1-docker.pkg.dev/$PROJECT_ID/videoclip-gen/frontend:latest'
+    id: 'Push-Frontend'
 
-  # Step 3: Deploy the container image to Google Cloud Run.
-  # Cloud Run is a serverless platform that automatically scales your container.
+  # ============================================================================
+  # BACKEND BUILD
+  # ============================================================================
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-t'
+      - 'us-central1-docker.pkg.dev/$PROJECT_ID/videoclip-gen/backend:latest'
+      - '-f'
+      - 'backend/Dockerfile'
+      - 'backend/'
+    id: 'Build-Backend'
+
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - 'us-central1-docker.pkg.dev/$PROJECT_ID/videoclip-gen/backend:latest'
+    id: 'Push-Backend'
+
+  # ============================================================================
+  # DEPLOY FRONTEND TO CLOUD RUN
+  # ============================================================================
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     entrypoint: gcloud
     args:
       - 'run'
       - 'deploy'
-      - 'videoclip-gen' # This will be the name of your service in Cloud Run.
-      - '--image=us-central1-docker.pkg.dev/$PROJECT_ID/videoclip-gen/videoclip-gen:latest' # The image to deploy.
-      - '--region=us-central1'   # The region to deploy the service to. Change if needed.
-      - '--platform=managed'     # Use the fully-managed Cloud Run environment.
-      - '--allow-unauthenticated' # Make the service publicly accessible.
-    id: 'Deploy'
+      - 'videoclip-gen-frontend'
+      - '--image=us-central1-docker.pkg.dev/$PROJECT_ID/videoclip-gen/frontend:latest'
+      - '--region=us-central1'
+      - '--platform=managed'
+      - '--allow-unauthenticated'
+      - '--port=8080'
+    id: 'Deploy-Frontend'
 
-# Store the name of the pushed image for potential use in other build steps or for build summary.
+  # ============================================================================
+  # DEPLOY BACKEND TO CLOUD RUN
+  # ============================================================================
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'videoclip-gen-backend'
+      - '--image=us-central1-docker.pkg.dev/$PROJECT_ID/videoclip-gen/backend:latest'
+      - '--region=us-central1'
+      - '--platform=managed'
+      - '--allow-unauthenticated'
+      - '--port=3000'
+      - '--memory=1Gi'
+      - '--timeout=3600'
+    id: 'Deploy-Backend'
+
+# Images built
 images:
-  - 'us-central1-docker.pkg.dev/$PROJECT_ID/videoclip-gen/videoclip-gen:latest'
+  - 'us-central1-docker.pkg.dev/$PROJECT_ID/videoclip-gen/frontend:latest'
+  - 'us-central1-docker.pkg.dev/$PROJECT_ID/videoclip-gen/backend:latest'
 
-# Configuration options for the build itself.
+# Options
 options:
-  # This is the critical fix for the error you encountered.
-  # It tells Cloud Build to send logs directly to Cloud Logging instead of a storage bucket.
   logging: CLOUD_LOGGING_ONLY
+  machineType: 'N1_HIGHCPU_8'
+
+# Timeout
+timeout: '3600s'
