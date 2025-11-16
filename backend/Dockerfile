@@ -37,8 +37,20 @@ COPY --from=builder /app/dist ./dist
 # Criar diretórios para dados
 RUN mkdir -p data tmp renders
 
-# Criar .env padrão se não existir
-RUN echo 'NODE_ENV=production\nPORT=3000' > .env
+# Criar script de inicialização que limpa tmp e renders
+RUN cat > /app/entrypoint.sh << 'EOF'
+#!/bin/sh
+# Limpar diretórios tmp e renders ao iniciar
+echo "🧹 Limpando diretórios tmp e renders..."
+rm -rf /app/tmp/* /app/renders/*
+mkdir -p /app/tmp /app/renders
+echo "✅ Diretórios limpos"
+
+# Iniciar aplicação
+exec node dist/index.js
+EOF
+
+RUN chmod +x /app/entrypoint.sh
 
 # Expor porta
 EXPOSE 3000
@@ -48,5 +60,5 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD wget --quiet --tries=1 --spider http://localhost:3000/health || exit 1
 
 # Start
-CMD ["node", "dist/index.js"]
+CMD ["/app/entrypoint.sh"]
 
