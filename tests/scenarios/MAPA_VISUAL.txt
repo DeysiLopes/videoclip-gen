@@ -1,0 +1,197 @@
+╔════════════════════════════════════════════════════════════════════════════╗
+║                   MAPA VISUAL DE CENÁRIOS                                  ║
+║              Chrome DevTools MCP × BDD Scenarios                           ║
+╚════════════════════════════════════════════════════════════════════════════╝
+
+┌─ FLUXO PRINCIPAL DE TESTES ─────────────────────────────────────────────┐
+│                                                                          │
+│  ⛔ CRITICAL  →  ⚠️  IMPORTANT  →  ℹ️  MEDIUM                             │
+│   (blocker)        (high prio)      (normal)                            │
+│                                                                          │
+│   8 testes       11 testes         11 testes                            │
+│   ~10 min        ~20 min            ~15 min                             │
+│                                                                          │
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌─ CRITICAL TESTS (⛔ 8) ─────────────────────────────────────────────────┐
+│                                                                          │
+│  SETUP STAGE                                                            │
+│  ┌────────────────────────────────────────────┐                         │
+│  │ FT-001 ──→ FT-002 ──→ FT-005 ──→ FT-007   │                         │
+│  │ Carrega    Preenche  Upload    Storyboard │                         │
+│  │ página     nome      áudio      →ativo    │                         │
+│  └────────────────────────────────────────────┘                         │
+│                                                                          │
+│  GENERATION STAGE                                                       │
+│  ┌──────────────────────┐                                               │
+│  │ FT-010: Gera Cenas   │                                               │
+│  │ com Gemini AI        │                                               │
+│  └──────────────────────┘                                               │
+│                                                                          │
+│  RENDER STAGE                                                           │
+│  ┌──────────────────────┐                                               │
+│  │ FT-016: Renderiza    │                                               │
+│  │ vídeo final          │                                               │
+│  └──────────────────────┘                                               │
+│                                                                          │
+│  ACCESSIBILITY BASELINE                                                 │
+│  ┌────────────────────┐  ┌──────────────────┐                           │
+│  │ CT-001: Teclado    │  │ CT-007: Contraste │                          │
+│  │ (TAB navigation)   │  │ (4.5:1 WCAG)     │                          │
+│  └────────────────────┘  └──────────────────┘                           │
+│                                                                          │
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌─ IMPORTANT TESTS (⚠️  11) ──────────────────────────────────────────────┐
+│                                                                          │
+│  SETUP VALIDATION                                                       │
+│  ┌─ FT-003 ┐  ┌─ FT-004 ┐  ┌─ FT-006 ┐                                  │
+│  │ Desabil. │→ │ Habilit.│→ │ Validar │                                │
+│  │ vazio    │  │ cheio   │  │ tipo    │                                │
+│  └─────────┘  └─────────┘  └─────────┘                                 │
+│                                                                          │
+│  STORY GENERATION                                                       │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐                               │
+│  │ FT-008   │→ │ FT-011   │→ │ FT-012   │                              │
+│  │ Descrição│  │ Visualiz.│  │ Edita    │                              │
+│  └──────────┘  └──────────┘  └──────────┘                              │
+│                                                                          │
+│  EXPORT & ACCESSIBILITY                                                 │
+│  ┌──────────┐  ┌─ CT-002 ┐  ┌─ CT-003 ┐  ┌─ CT-005 ┐  ┌─ CT-011 ┐    │
+│  │ FT-018   │→ │ Shift+TB│→ │ ENTER   │→ │ ESC     │→ │ Labels  │    │
+│  │ Download │  │         │  │         │  │         │  │         │    │
+│  └──────────┘  └─────────┘  └─────────┘  └─────────┘  └─────────┘    │
+│                                                                          │
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌─ MEDIUM TESTS (ℹ️  11) ─────────────────────────────────────────────────┐
+│                                                                          │
+│  SCENE MANAGEMENT                                                       │
+│  ┌─ FT-009 ┐  ┌─ FT-013 ┐  ┌─ FT-014 ┐  ┌─ FT-015 ┐                    │
+│  │ Validar │→ │Regenerar│→ │ Deletar │→ │Reordenar│                   │
+│  │ tamanho │  │ cena    │  │ cena    │  │ cenas   │                   │
+│  └─────────┘  └─────────┘  └─────────┘  └─────────┘                    │
+│                                                                          │
+│  PERFORMANCE & DATA                                                     │
+│  ┌─ FT-017 ┐  ┌─ FT-019 ┐  ┌─ FT-024 ┐                                  │
+│  │Progresso│→ │ Storage │→ │ Persiste│                                │
+│  │ render  │  │ monitor │  │ dados   │                                │
+│  └─────────┘  └─────────┘  └─────────┘                                 │
+│                                                                          │
+│  ACCESSIBILITY EXTENDED                                                 │
+│  ┌─ CT-004 ┐  ┌─ CT-008 ┐  ┌─ CT-009 ┐  ┌─ CT-012 ┐                    │
+│  │ SPACE   │→ │Grayscale│→ │ Não cor │→ │htmlFor  │                   │
+│  │ checkbox│  │ works   │  │ só      │  │ labels  │                   │
+│  └─────────┘  └─────────┘  └─────────┘  └─────────┘                    │
+│                                                                          │
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌─ FERRAMENTAS POR CRITICIDADE ──────────────────────────────────────────┐
+│                                                                          │
+│  ⛔ CRITICAL: evaluate_script, click, wait_for, take_snapshot, press_key
+│                                                                          │
+│  ⚠️  IMPORTANT: fill, handle_dialog, take_screenshot, press_key         │
+│                                                                          │
+│  ℹ️  MEDIUM: drag, performance_*, list_network_requests, resize_page    │
+│                                                                          │
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌─ COBERTURA POR MÓDULO ─────────────────────────────────────────────────┐
+│                                                                          │
+│  Configuração do Projeto (6)  ████████░░ Setup de base                 │
+│  Geração de Cenas (9)         ██████████ Lógica principal              │
+│  Teclado (6)                  ████████░░ Acessibilidade                │
+│  Cores (5)                    ███████░░░ Design acessível              │
+│  Renderização (4)             ██████░░░░ Video output                  │
+│  Formulários (3)              █████░░░░░ Form validation               │
+│  Armazenamento (1)            ██░░░░░░░░ Storage monitoring           │
+│  Persistência (1)             ██░░░░░░░░ Data persistence             │
+│                                                                          │
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌─ QUADRANTE DE TESTES ──────────────────────────────────────────────────┐
+│                                                                          │
+│                    FUNCIONALIDADE                                       │
+│              Alta         │         Média                               │
+│            ────────────────┼────────────────                            │
+│         F  │ Críticos (8)  │ Médios (7)                                 │
+│         U  │ Bloqueadores  │ Edge cases                                 │
+│         N  │ Smoke tests   │                                            │
+│         C  ├───────────────┼────────────────                            │
+│         I  │ Important (7) │ Médios (4)                                 │
+│         O  │ Regression    │ Extended                                   │
+│         N  │ Full flow     │ coverage                                   │
+│         A  │               │                                            │
+│            └───────────────┴────────────────                            │
+│              Alta     ACESSIBILIDADE    Média                           │
+│                                                                          │
+│  Combinação ideal: Alta funcionalidade + Alta acessibilidade (Critical)│
+│                                                                          │
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌─ TEMPO ESTIMADO DE EXECUÇÃO ───────────────────────────────────────────┐
+│                                                                          │
+│  ⛔ CRITICAL (Smoke Test)        →  ~10 minutos                         │
+│  ⛔ + ⚠️  (Regression)            →  ~30 minutos                         │
+│  ⛔ + ⚠️  + ℹ️ (Full Suite)       →  ~50 minutos                         │
+│                                                                          │
+│  Em CI/CD:                                                              │
+│    • PRs: Rodar CRITICAL (fast feedback)                                │
+│    • Main: Rodar todos (completo)                                       │
+│    • Scheduled: Daily (regression completa)                             │
+│                                                                          │
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌─ ARQUITETURA DE DIRETORIOS ────────────────────────────────────────────┐
+│                                                                          │
+│  scenarios/                                                             │
+│  │                                                                      │
+│  ├─ @critical/       ← Começar aqui (bloqueadores)                     │
+│  │  ├─ FT-*.md       (6 testes funcionais críticos)                    │
+│  │  └─ CT-*.md       (2 testes acessibilidade críticos)                │
+│  │                                                                      │
+│  ├─ @important/      ← Depois (alta prioridade)                        │
+│  │  ├─ FT-*.md       (7 testes funcionais importantes)                 │
+│  │  └─ CT-*.md       (4 testes acessibilidade importantes)             │
+│  │                                                                      │
+│  ├─ @medium/         ← Por fim (cobertura estendida)                   │
+│  │  ├─ FT-*.md       (7 testes funcionais médios)                      │
+│  │  └─ CT-*.md       (4 testes acessibilidade médios)                  │
+│  │                                                                      │
+│  ├─ README.md        ← Índice completo com deps                        │
+│  ├─ INDEX.md         ← Busca rápida por ferramenta                     │
+│  ├─ GUIA_RAPIDO.md   ← Como usar                                       │
+│  └─ MAPA_VISUAL.txt  ← Este arquivo                                    │
+│                                                                          │
+│  Total: 30 cenários em 3 arquivos de documentação                      │
+│  Size: 160 KB                                                           │
+│  Lines: ~2200                                                           │
+│                                                                          │
+└──────────────────────────────────────────────────────────────────────────┘
+
+════════════════════════════════════════════════════════════════════════════
+
+PRÓXIMAS AÇÕES:
+
+  1. ✓ CRIADO: Estrutura de cenários por criticidade
+  2. ✓ CRIADO: Documentação de cada cenário
+  3. ✓ CRIADO: Mapeamento de ferramentas MCP
+  4. ⏳ IMPLEMENTAR: Keywords Robot Framework
+  5. ⏳ INTEGRAR: Chrome DevTools MCP
+  6. ⏳ EXECUTAR: Testes automatizados
+  7. ⏳ CI/CD: Pipeline de testes
+
+════════════════════════════════════════════════════════════════════════════
+
+COMO COMEÇAR:
+
+  1. Ler: tests/scenarios/README.md
+  2. Entender: Fluxo acima (⛔ → ⚠️  → ℹ️)
+  3. Implementar: Keywords para cada ferramenta MCP
+  4. Executar: robot --include @critical tests/scenarios/
+
+════════════════════════════════════════════════════════════════════════════
+
+Gerado em: 2025-11-16T21:23:24.347Z
+Versão: 1.0.0
+Status: ✅ PRONTO
