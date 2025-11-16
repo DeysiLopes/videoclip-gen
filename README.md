@@ -166,17 +166,45 @@ npm run dev
 
 ### Opção 2: Docker Compose (Produção Local)
 
+**🚀 Método Rápido (Recomendado):**
+
 ```bash
 # 1️⃣ Clone o projeto
 git clone https://github.com/DeysiLopes/videoclip-gen.git
 cd videoclip-gen
 
-# 2️⃣ Inicie com Docker Compose
-docker-compose up --build
+# 2️⃣ Inicie com o script
+./start.sh
 
-# → Frontend: http://localhost:8080
-# → Backend: http://localhost:3000 (interno)
+# → Frontend: http://localhost:3000
+# → Backend:  http://localhost:8080
 ```
+
+**📋 Scripts Disponíveis:**
+
+- `./start.sh` - Inicia frontend + backend com Docker Compose
+- `./stop.sh` - Para e remove containers, volumes e redes
+
+**🔧 Método Manual:**
+
+```bash
+# Parar containers existentes
+docker compose down -v
+
+# Construir e iniciar
+docker compose up --build -d
+
+# Ver logs
+docker compose logs -f
+
+# Parar
+docker compose down -v
+```
+
+**🌐 URLs:**
+- **Frontend:** http://localhost:3000
+- **Backend API:** http://localhost:8080/health
+- **Backend Health:** http://localhost:8080/health
 
 ### Opção 3: Produção (GCP Cloud Run)
 

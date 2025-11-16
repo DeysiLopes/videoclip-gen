@@ -38,19 +38,16 @@ COPY --from=builder /app/dist ./dist
 RUN mkdir -p data tmp renders
 
 # Criar script de inicialização que limpa tmp e renders
-RUN cat > /app/entrypoint.sh << 'EOF'
-#!/bin/sh
-# Limpar diretórios tmp e renders ao iniciar
-echo "🧹 Limpando diretórios tmp e renders..."
-rm -rf /app/tmp/* /app/renders/*
-mkdir -p /app/tmp /app/renders
-echo "✅ Diretórios limpos"
-
-# Iniciar aplicação
-exec node dist/index.js
-EOF
-
-RUN chmod +x /app/entrypoint.sh
+RUN echo '#!/bin/sh' > /app/entrypoint.sh && \
+    echo '# Limpar diretórios tmp e renders ao iniciar' >> /app/entrypoint.sh && \
+    echo 'echo "🧹 Limpando diretórios tmp e renders..."' >> /app/entrypoint.sh && \
+    echo 'rm -rf /app/tmp/* /app/renders/*' >> /app/entrypoint.sh && \
+    echo 'mkdir -p /app/tmp /app/renders' >> /app/entrypoint.sh && \
+    echo 'echo "✅ Diretórios limpos"' >> /app/entrypoint.sh && \
+    echo '' >> /app/entrypoint.sh && \
+    echo '# Iniciar aplicação' >> /app/entrypoint.sh && \
+    echo 'exec node dist/index.js' >> /app/entrypoint.sh && \
+    chmod +x /app/entrypoint.sh
 
 # Expor porta
 EXPOSE 3000
