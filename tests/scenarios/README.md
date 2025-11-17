@@ -224,12 +224,35 @@ Cada arquivo segue o padrão:
 
 ## 🎯 Objetivo
 
+## Execution Steps (for Agent)
+*(Passos detalhados para o agente executar o cenário usando ferramentas chrome-devtools)*
+
 ## 🔧 Ferramentas Chrome DevTools MCP
 
 ## ✅ Critérios de Aceitação
 
 ## 🔗 Relacionados
 ```
+
+
+
+---
+
+## 🚀 Como Usar com o Agente
+
+Para que o agente execute um cenário de teste específico, forneça o caminho completo para o arquivo Markdown do cenário. O agente lerá o arquivo, interpretará os "Execution Steps (for Agent)" e executará as ações necessárias usando as ferramentas `chrome-devtools`.
+
+**Durante a execução, o agente irá automaticamente:**
+1.  Iniciar uma nova página no Chrome.
+2.  Navegar para a URL da aplicação (http://localhost:3000).
+3.  Executar os passos detalhados na seção "Execution Steps (for Agent)" do arquivo.
+4.  **Capturar screenshots automaticamente** após cada ação significativa (navegação, preenchimento de campos, cliques) e salvá-las em `tests/results/screenshots/`.
+5.  Gerar um relatório de teste na pasta `tests/results/`, incluindo os links para os screenshots capturados.
+
+**Exemplo:**
+"Execute o cenário de teste em `tests/scenarios/@critical/FT-001.md`."
+
+*(Nota: Para cenários que exigem interação com elementos da UI, os UIDs específicos precisarão ser identificados pelo agente durante a execução, ou preenchidos manualmente nos "Execution Steps" se forem estáticos.)*
 
 ---
 
